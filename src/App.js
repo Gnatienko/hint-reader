@@ -1,5 +1,5 @@
 import "./App.css"
-import { Input, Button, Card } from "antd"
+import { Input, Button, Card, Divider, Slider } from "antd"
 import React, { useState } from "react"
 const { TextArea } = Input
 
@@ -9,7 +9,7 @@ function App() {
 
   async function translateWord(word) {
     const response = await fetch(
-      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ru&dt=t&q=${encodeURIComponent(
+      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=uk&dt=t&q=${encodeURIComponent(
         word
       )}`
     )
@@ -37,13 +37,25 @@ function App() {
       style={{
         display: "flex",
         "justify-content": "center",
+        flexDirection: "column",
       }}
     >
+      <h1>Simple reader</h1>
+      <h3>
+        This application allows you to read English text even if you know only
+        50% of words in the text. Simply take a look at the top of each word and
+        you will see a translation. Also, since translation is not very
+        convenient to read it will push you to read in English.
+      </h3>
+      <Slider />
+      <Divider />
       <div
         style={{
-          width: 1000,
+          maxWidth: 1000,
+          width: "-webkit-fill-available",
           display: "flex",
           flexDirection: "column",
+          alignSelf: "center",
         }}
       >
         <TextArea
