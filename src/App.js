@@ -46,7 +46,6 @@ function App() {
         style={{
           width: 1000,
           alignSelf: "center",
-          margin: 20,
           textAlign: "center",
         }}
       >
@@ -67,7 +66,6 @@ function App() {
         }}
       >
         <TextArea
-          style={{ marginTop: 50 }}
           autoSize={{ minRows: 3, maxRows: 5 }}
           placeholder="Enter text here"
           onChange={(e) => setInputText(e.target.value)}
