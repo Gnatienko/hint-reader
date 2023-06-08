@@ -4,7 +4,7 @@ import React, { useState } from "react"
 const { TextArea } = Input
 
 function App() {
-  const [inputText, setInputText] = useState("")
+  const [inputText, setInputText] = useState("Enter text here")
   const [wordObjects, setWordObjects] = useState([])
   const [textSize, setTextSize] = useState(20)
 
@@ -67,7 +67,7 @@ function App() {
       >
         <TextArea
           autoSize={{ minRows: 3, maxRows: 5 }}
-          placeholder="Enter text here"
+          defaultValue="Enter text here"
           onChange={(e) => setInputText(e.target.value)}
         />
         <div
