@@ -6,7 +6,7 @@ const { TextArea } = Input
 function App() {
   const [inputText, setInputText] = useState("")
   const [wordObjects, setWordObjects] = useState([])
-  const [textSize, setTextSize] = useState(40)
+  const [textSize, setTextSize] = useState(20)
 
   async function translateWord(word) {
     const response = await fetch(
@@ -103,11 +103,16 @@ function App() {
           </div>
         </div>
 
-        <Card style={{ backgroundColor: "#EFF0F3", minHeight: 300 }}>
+        <Card
+          style={{ backgroundColor: "#EFF0F3", minHeight: 300, lineHeight: 1 }}
+        >
           {wordObjects.map((item) => (
             <div class="word">
               <tr>
-                <span class="translation" style={{ fontSize: textSize / 3 }}>
+                <span
+                  class="translation"
+                  style={{ fontSize: textSize / (5 / 2) }}
+                >
                   <td> {`${item.index}`} </td>
                 </span>
                 <span
