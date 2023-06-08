@@ -1,5 +1,5 @@
 import "./App.css"
-import { Input, Button, Card, Divider, Slider } from "antd"
+import { Input, Button, Card, Divider, Slider, Radio } from "antd"
 import React, { useState } from "react"
 const { TextArea } = Input
 
@@ -7,10 +7,11 @@ function App() {
   const [inputText, setInputText] = useState("Enter text here")
   const [wordObjects, setWordObjects] = useState([])
   const [textSize, setTextSize] = useState(20)
+  const [language, setLanguage] = useState("en")
 
   async function translateWord(word) {
     const response = await fetch(
-      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=uk&dt=t&q=${encodeURIComponent(
+      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${language}&tl=uk&dt=t&q=${encodeURIComponent(
         word
       )}`
     )
@@ -72,8 +73,10 @@ function App() {
         />
         <div
           style={{
-            width: 300,
+            width: 500,
             alignSelf: "center",
+            alignItems: "center",
+
             margin: 20,
             display: "flex",
             flexDirection: "row",
@@ -101,6 +104,20 @@ function App() {
               value={textSize}
             />
           </div>
+          <Radio.Group
+            style={{
+              display: "flex",
+              flexDirection: "row",
+            }}
+            value={language}
+            buttonStyle="solid"
+            onChange={(e) => {
+              setLanguage(e.target.value)
+            }}
+          >
+            <Radio.Button value="en">English</Radio.Button>
+            <Radio.Button value="es">Español</Radio.Button>
+          </Radio.Group>
         </div>
 
         <Card
