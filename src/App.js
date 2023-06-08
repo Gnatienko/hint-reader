@@ -6,6 +6,7 @@ const { TextArea } = Input
 function App() {
   const [inputText, setInputText] = useState("")
   const [wordObjects, setWordObjects] = useState([])
+  const [textSize, setTextSize] = useState(20)
 
   async function translateWord(word) {
     const response = await fetch(
@@ -40,14 +41,21 @@ function App() {
         flexDirection: "column",
       }}
     >
-      <h1>Simple reader</h1>
-      <h3>
+      <h1 style={{ alignSelf: "center", margin: 20 }}>Simple reader</h1>
+      <div
+        style={{
+          width: 1000,
+          alignSelf: "center",
+          margin: 20,
+          textAlign: "center",
+        }}
+      >
         This application allows you to read English text even if you know only
         50% of words in the text. Simply take a look at the top of each word and
         you will see a translation. Also, since translation is not very
         convenient to read it will push you to read in English.
-      </h3>
-      <Slider />
+      </div>
+
       <Divider />
       <div
         style={{
@@ -64,14 +72,38 @@ function App() {
           placeholder="Enter text here"
           onChange={(e) => setInputText(e.target.value)}
         />
-
-        <Button
-          type="primary"
-          style={{ width: 100, alignSelf: "center", margin: 20 }}
-          onClick={handleButtonClick}
+        <div
+          style={{
+            width: 300,
+            alignSelf: "center",
+            margin: 20,
+            display: "flex",
+            flexDirection: "row",
+          }}
         >
-          Process
-        </Button>
+          <Button
+            type="primary"
+            style={{ width: 100, alignSelf: "center", margin: 20 }}
+            onClick={handleButtonClick}
+          >
+            Process
+          </Button>
+          <div
+            style={{
+              width: 300,
+              alignSelf: "center",
+              margin: 20,
+            }}
+          >
+            Text size:
+            <Slider
+              min={15}
+              max={30}
+              onChange={(e) => setTextSize(e)}
+              value={textSize}
+            />
+          </div>
+        </div>
 
         <Card style={{ backgroundColor: "#EFF0F3", minHeight: 300 }}>
           {wordObjects.map((item) => (
@@ -80,7 +112,7 @@ function App() {
                 <span class="translation">
                   <td> {`${item.index}`} </td>
                 </span>
-                <span class="original">
+                <span class="original" style={{ fontSize: textSize }}>
                   <td>{`${item.word}`} &nbsp;</td>
                 </span>
               </tr>
