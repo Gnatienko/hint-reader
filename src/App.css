@@ -6,15 +6,11 @@ h1 {
   display: inline-block;
 }
 
-.original{
-  
-  line-height:0%
-}
+
 
 .translation{
   width: 10px;
   display: block;
-  font-size: 70%;
   color: #b9b9b9;
   white-space: nowrap;
 

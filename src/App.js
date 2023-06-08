@@ -6,7 +6,7 @@ const { TextArea } = Input
 function App() {
   const [inputText, setInputText] = useState("")
   const [wordObjects, setWordObjects] = useState([])
-  const [textSize, setTextSize] = useState(20)
+  const [textSize, setTextSize] = useState(40)
 
   async function translateWord(word) {
     const response = await fetch(
@@ -96,7 +96,7 @@ function App() {
             Text size:
             <Slider
               min={15}
-              max={30}
+              max={50}
               onChange={(e) => setTextSize(e)}
               value={textSize}
             />
@@ -107,10 +107,16 @@ function App() {
           {wordObjects.map((item) => (
             <div class="word">
               <tr>
-                <span class="translation">
+                <span class="translation" style={{ fontSize: textSize / 3 }}>
                   <td> {`${item.index}`} </td>
                 </span>
-                <span class="original" style={{ fontSize: textSize }}>
+                <span
+                  class="original"
+                  style={{
+                    fontSize: textSize,
+                    lineHeight: textSize / 2 + "px",
+                  }}
+                >
                   <td>{`${item.word}`} &nbsp;</td>
                 </span>
               </tr>
