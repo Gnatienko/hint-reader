@@ -2,7 +2,7 @@ import "./App.css"
 import { Input, Button, Card, Divider, Slider, Radio } from "antd"
 import React, { useState } from "react"
 const { TextArea } = Input
-
+//добавить инглиш и изменение яркости перевода
 function App() {
   const [inputText, setInputText] = useState("Enter text here")
   const [wordObjects, setWordObjects] = useState([])
