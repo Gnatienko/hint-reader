@@ -22,3 +22,34 @@ h1 {
 
   box-shadow: -11px 0px 7px -5px #EFF0F3;
 }
+
+.app{
+ 
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+
+}
+
+.description{       
+  width: 1000px;
+  align-self: center;
+  text-align: center;
+}
+
+.input-container{
+    max-width: 1000px;
+    width: -webkit-fill-available;
+    display: flex;
+    flex-direction: column;
+    align-self: center;
+}
+
+.button-container {
+  width: 500px;
+  align-self: center;
+  align-items: center;
+  margin: 20px;
+  display: flex;
+  flex-direction: row;
+}

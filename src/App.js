@@ -2,7 +2,7 @@ import "./App.css"
 import { Input, Button, Card, Divider, Slider, Radio } from "antd"
 import React, { useState } from "react"
 const { TextArea } = Input
-//добавить инглиш и изменение яркости перевода
+//вынести цсс
 function App() {
   const [inputText, setInputText] = useState("Enter text here")
   const [wordObjects, setWordObjects] = useState([])
@@ -34,22 +34,9 @@ function App() {
   }
 
   return (
-    <div
-      className="App"
-      style={{
-        display: "flex",
-        "justify-content": "center",
-        flexDirection: "column",
-      }}
-    >
+    <div className="app">
       <h1 style={{ alignSelf: "center", margin: 20 }}>Simple reader</h1>
-      <div
-        style={{
-          width: 1000,
-          alignSelf: "center",
-          textAlign: "center",
-        }}
-      >
+      <div className="description">
         This application allows you to read English text even if you know only
         50% of words in the text. Simply take a look at the top of each word and
         you will see a translation. Also, since translation is not very
@@ -57,31 +44,13 @@ function App() {
       </div>
 
       <Divider />
-      <div
-        style={{
-          maxWidth: 1000,
-          width: "-webkit-fill-available",
-          display: "flex",
-          flexDirection: "column",
-          alignSelf: "center",
-        }}
-      >
+      <div className="input-container">
         <TextArea
           autoSize={{ minRows: 3, maxRows: 5 }}
           defaultValue="Enter text here"
           onChange={(e) => setInputText(e.target.value)}
         />
-        <div
-          style={{
-            width: 500,
-            alignSelf: "center",
-            alignItems: "center",
-
-            margin: 20,
-            display: "flex",
-            flexDirection: "row",
-          }}
-        >
+        <div className="button-container">
           <Button
             type="primary"
             style={{ width: 100, alignSelf: "center", margin: 20 }}
