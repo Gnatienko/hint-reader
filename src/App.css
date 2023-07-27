@@ -1,89 +1,24 @@
-.App {
-  display: flex;
-  justify-content: center;
-  flex-direction: column;
-}
-
-.word{
-  display: inline-block;}
-
 h1 {
-  align-self: center;
-  margin: 20px;
   color: coral;
 }
 
-.container {
-  max-width: 1000px;
-  text-align: center;
-  align-self: center;
+.word{
+  display: inline-block;
 }
 
-.container p {
-  width: 1000px;
-  align-self: center;
-  text-align: center;
+
+
+.translation{
+  width: 10px;
+  display: block;
+  color: #d1cece;
+  white-space: nowrap;
+
 }
 
-.textarea {
-  width: 100%;
-  margin-bottom: 20px;
-}
+.word{
+  display: inline-block;
+  background: #EFF0F3;
 
-.input-container {
-  max-width: 1000px;
-  width: -webkit-fill-available;
-  display: flex;
-  flex-direction: column;
-  align-self: center;
-  margin-bottom: 20px;
-}
-
-.button-container {
-  width: 500px;
-  align-self: center;
-  align-items: center;
-  margin: 20px;
-  display: flex;
-  flex-direction: row;
-}
-
-.process-button {
-  width: 100px;
-  align-self: center;
-  margin-right: 20px;
-}
-
-.slider-container {
-  width: 300px;
-  align-self: center;
-  margin: 20px;
-}
-
-.translation-radio-group {
-  display: flex;
-  flex-direction: row;
-}
-
-.translation-radio-button {
-  margin-right: 10px;
-}
-
-.card {
-  background-color: #eff0f3;
-  min-height: 300px;
-  line-height: 1;
-}
-
-.word {
-  display: flex;
-}
-
-.translation {
-  font-size: var(--translation-font-size);
-}
-
-.original {
-  font-size: var(--original-font-size);
-  line-height: var(--original-line-height);
+  box-shadow: -11px 0px 7px -5px #EFF0F3;
 }
