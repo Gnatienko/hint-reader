@@ -1,8 +1,9 @@
+import React, { useState } from "react"
 import "./App.css"
 import { Input, Button, Card, Divider, Slider, Radio } from "antd"
-import React, { useState } from "react"
+
 const { TextArea } = Input
-//добавить инглиш и изменение яркости перевода
+
 function App() {
   const [inputText, setInputText] = useState("Enter text here")
   const [wordObjects, setWordObjects] = useState([])
@@ -17,8 +18,6 @@ function App() {
     )
     const data = await response.json()
     const translation = data[0][0][0]
-    console.log(translation)
-
     return translation
   }
 
@@ -34,68 +33,31 @@ function App() {
   }
 
   return (
-    <div
-      className="App"
-      style={{
-        display: "flex",
-        "justify-content": "center",
-        flexDirection: "column",
-      }}
-    >
-      <h1 style={{ alignSelf: "center", margin: 20 }}>Simple reader</h1>
-      <div
-        style={{
-          width: 1000,
-          alignSelf: "center",
-          textAlign: "center",
-        }}
-      >
+    <div className="App">
+      <h1>Simple reader</h1>
+      <div className="container">
         This application allows you to read English text even if you know only
         50% of words in the text. Simply take a look at the top of each word and
         you will see a translation. Also, since translation is not very
-        convenient to read it will push you to read in English.
+        convenient to read it will push you to read in English.{" "}
       </div>
-
       <Divider />
-      <div
-        style={{
-          maxWidth: 1000,
-          width: "-webkit-fill-available",
-          display: "flex",
-          flexDirection: "column",
-          alignSelf: "center",
-        }}
-      >
+      <div className="input-container">
         <TextArea
+          className="textarea"
           autoSize={{ minRows: 3, maxRows: 5 }}
           defaultValue="Enter text here"
           onChange={(e) => setInputText(e.target.value)}
         />
-        <div
-          style={{
-            width: 500,
-            alignSelf: "center",
-            alignItems: "center",
-
-            margin: 20,
-            display: "flex",
-            flexDirection: "row",
-          }}
-        >
+        <div className="button-container">
           <Button
+            className="process-button"
             type="primary"
-            style={{ width: 100, alignSelf: "center", margin: 20 }}
             onClick={handleButtonClick}
           >
             Process
           </Button>
-          <div
-            style={{
-              width: 300,
-              alignSelf: "center",
-              margin: 20,
-            }}
-          >
+          <div className="slider-container">
             Text size:
             <Slider
               min={15}
@@ -105,43 +67,39 @@ function App() {
             />
           </div>
           <Radio.Group
-            style={{
-              display: "flex",
-              flexDirection: "row",
-            }}
+            className="translation-radio-group"
             value={language}
             buttonStyle="solid"
             onChange={(e) => {
               setLanguage(e.target.value)
             }}
           >
-            <Radio.Button value="en">English</Radio.Button>
-            <Radio.Button value="es">Español</Radio.Button>
+            <Radio.Button className="translation-radio-button" value="en">
+              English
+            </Radio.Button>
+            <Radio.Button className="translation-radio-button" value="es">
+              Español
+            </Radio.Button>
           </Radio.Group>
         </div>
-
-        <Card
-          style={{ backgroundColor: "#EFF0F3", minHeight: 300, lineHeight: 1 }}
-        >
-          {wordObjects.map((item) => (
-            <div class="word">
-              <tr>
-                <span
-                  class="translation"
-                  style={{ fontSize: textSize / (5 / 2) }}
-                >
-                  <td> {`${item.index}`} </td>
-                </span>
-                <span
-                  class="original"
-                  style={{
-                    fontSize: textSize,
-                    lineHeight: textSize / 2 + "px",
-                  }}
-                >
-                  <td>{`${item.word}`} &nbsp;</td>
-                </span>
-              </tr>
+        <Card className="card" style={{ fontSize: textSize / 2 }}>
+          {wordObjects.map((item, index) => (
+            <div key={index} className="word">
+              <span
+                className="translation"
+                style={{ fontSize: textSize / (5 / 2) }}
+              >
+                {item.index}
+              </span>
+              <span
+                className="original"
+                style={{
+                  fontSize: textSize,
+                  lineHeight: textSize / 2 + "px",
+                }}
+              >
+                {item.word}&nbsp;
+              </span>
             </div>
           ))}
         </Card>
