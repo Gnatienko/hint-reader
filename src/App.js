@@ -24,13 +24,13 @@ function App() {
 
   const handleButtonClick = async () => {
     const textArray = inputText.split(" ")
-    const wordsWithIndex = await Promise.all(
+    const wordsWithTranslation = await Promise.all(
       textArray.map(async (word) => ({
         word,
-        index: await translateWord(word),
+        translation: await translateWord(word),
       }))
     )
-    setWordObjects(wordsWithIndex)
+    setWordObjects(wordsWithTranslation)
   }
 
   return (
@@ -99,7 +99,7 @@ function App() {
                   class="translation"
                   style={{ fontSize: textSize / (5 / 2) }}
                 >
-                  <td> {`${item.index}`} </td>
+                  <td> {`${item.translation}`} </td>
                 </span>
                 <span
                   class="original"
