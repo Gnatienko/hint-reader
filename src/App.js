@@ -7,6 +7,8 @@ function App() {
   const [inputText, setInputText] = useState("Enter text here")
   const [wordObjects, setWordObjects] = useState([])
   const [textSize, setTextSize] = useState(20)
+  const [translationOpacity, SetTranslationOpacity] = useState(10)
+
   const [language, setLanguage] = useState("en")
 
   async function translateWord(word) {
@@ -60,18 +62,38 @@ function App() {
           </Button>
           <div
             style={{
-              width: 300,
               alignSelf: "center",
-              margin: 20,
+              display: "flex",
             }}
           >
-            Text size:
-            <Slider
-              min={15}
-              max={50}
-              onChange={(e) => setTextSize(e)}
-              value={textSize}
-            />
+            <div
+              style={{
+                width: 200,
+                margin: 20,
+              }}
+            >
+              Text size:
+              <Slider
+                min={15}
+                max={50}
+                onChange={(e) => setTextSize(e)}
+                value={textSize}
+              />
+            </div>
+            <div
+              style={{
+                width: 200,
+                margin: 20,
+              }}
+            >
+              Translation opacity:
+              <Slider
+                min={5}
+                max={95}
+                onChange={(e) => SetTranslationOpacity(e)}
+                value={translationOpacity}
+              />
+            </div>
           </div>
           <Radio.Group
             style={{
@@ -97,7 +119,10 @@ function App() {
               <tr>
                 <span
                   class="translation"
-                  style={{ fontSize: textSize / (5 / 2) }}
+                  style={{
+                    opacity: translationOpacity / 100,
+                    fontSize: textSize / (5 / 2),
+                  }}
                 >
                   <td> {`${item.translation}`} </td>
                 </span>
