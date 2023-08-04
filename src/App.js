@@ -10,10 +10,11 @@ function App() {
   const [translationOpacity, SetTranslationOpacity] = useState(10)
 
   const [language, setLanguage] = useState("en")
+  const [languageFrom, setLanguageFrom] = useState("es")
 
   async function translateWord(word) {
     const response = await fetch(
-      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${language}&dt=t&q=${encodeURIComponent(
+      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${languageFrom}&tl=${language}&dt=t&q=${encodeURIComponent(
         word
       )}`
     )
@@ -55,7 +56,7 @@ function App() {
         <div className="button-container">
           <Button
             type="primary"
-            style={{ width: 100, alignSelf: "center", margin: 20 }}
+            style={{ width: 100, alignSelf: "center" }}
             onClick={handleButtonClick}
           >
             Process
@@ -95,6 +96,21 @@ function App() {
               />
             </div>
           </div>
+          <Radio.Group
+            style={{
+              display: "flex",
+              flexDirection: "row",
+            }}
+            value={languageFrom}
+            buttonStyle="solid"
+            onChange={(e) => {
+              setLanguageFrom(e.target.value)
+            }}
+          >
+            <Radio.Button value="en">English</Radio.Button>
+            <Radio.Button value="es">Espanol</Radio.Button>
+          </Radio.Group>{" "}
+          &nbsp; &rarr; &nbsp;
           <Radio.Group
             style={{
               display: "flex",
