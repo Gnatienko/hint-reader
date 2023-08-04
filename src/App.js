@@ -89,7 +89,7 @@ function App() {
               Translation opacity:
               <Slider
                 min={5}
-                max={95}
+                max={70}
                 onChange={(e) => SetTranslationOpacity(e)}
                 value={translationOpacity}
               />
