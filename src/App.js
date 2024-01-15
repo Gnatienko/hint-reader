@@ -10,8 +10,8 @@ function App() {
   const [textSize, setTextSize] = useState(20)
   const [translationOpacity, SetTranslationOpacity] = useState(10)
 
-  const [language, setLanguage] = useState("en")
-  const [languageFrom, setLanguageFrom] = useState("es")
+  const [language, setLanguage] = useState("uk")
+  const [languageFrom, setLanguageFrom] = useState("auto")
 
   async function translateWord(word) {
     const response = await fetch(
