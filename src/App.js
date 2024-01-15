@@ -110,6 +110,10 @@ function App() {
             }}
             treeData={[
               {
+                value: "auto",
+                title: "auto",
+              },
+              {
                 value: "es",
                 title: "es",
               },
