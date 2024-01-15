@@ -1,8 +1,9 @@
 import "./App.css"
-import { Input, Button, Card, Divider, Slider, Radio } from "antd"
+import { Input, Button, Divider, Slider, Radio, TreeSelect } from "antd"
 import React, { useState } from "react"
+import ReadingArea from "./ReadingArea"
 const { TextArea } = Input
-//вынести цсс
+
 function App() {
   const [inputText, setInputText] = useState("Enter text here")
   const [wordObjects, setWordObjects] = useState([])
@@ -95,21 +96,33 @@ function App() {
                 value={translationOpacity}
               />
             </div>
-          </div>
-          <Radio.Group
-            style={{
-              display: "flex",
-              flexDirection: "row",
-            }}
+          </div>{" "}
+          <TreeSelect
+            showSearch
+            style={{ width: "100%" }}
             value={languageFrom}
-            buttonStyle="solid"
+            dropdownStyle={{ maxHeight: 400, overflow: "auto" }}
+            placeholder="Please select"
+            allowClear
+            treeDefaultExpandAll
             onChange={(e) => {
-              setLanguageFrom(e.target.value)
+              setLanguageFrom(e)
             }}
-          >
-            <Radio.Button value="en">English</Radio.Button>
-            <Radio.Button value="es">Espanol</Radio.Button>
-          </Radio.Group>{" "}
+            treeData={[
+              {
+                value: "es",
+                title: "es",
+              },
+              {
+                value: "en",
+                title: "en",
+              },
+              {
+                value: "bg",
+                title: "bg",
+              },
+            ]}
+          />
           &nbsp; &rarr; &nbsp;
           <Radio.Group
             style={{
@@ -127,34 +140,11 @@ function App() {
           </Radio.Group>
         </div>
 
-        <Card
-          style={{ backgroundColor: "#EFF0F3", minHeight: 300, lineHeight: 1 }}
-        >
-          {wordObjects.map((item) => (
-            <div class="word">
-              <tr>
-                <span
-                  class="translation"
-                  style={{
-                    opacity: translationOpacity / 100,
-                    fontSize: textSize / (5 / 2),
-                  }}
-                >
-                  <td> {`${item.translation}`} </td>
-                </span>
-                <span
-                  class="original"
-                  style={{
-                    fontSize: textSize,
-                    lineHeight: textSize / 2 + "px",
-                  }}
-                >
-                  <td>{`${item.word}`} &nbsp;</td>
-                </span>
-              </tr>
-            </div>
-          ))}
-        </Card>
+        <ReadingArea
+          wordObjects={wordObjects}
+          textSize={textSize}
+          translationOpacity={translationOpacity}
+        />
       </div>
       <a href="https://www.ispanskamova.com/ispanski-teksty-z-audio/">!</a>
     </div>
