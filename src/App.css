@@ -2,52 +2,40 @@ h1 {
   color: coral;
 }
 
-.word{
+.word {
   display: inline-block;
 }
 
-
-
-.translation{
+.translation {
   width: 10px;
   display: block;
   color: #000000;
   white-space: nowrap;
-
 }
 
-.word{
+.word {
   display: inline-block;
-  background: #EFF0F3;
+  background: #eff0f3;
 
-  box-shadow: -11px 0px 7px -5px #EFF0F3;
+  box-shadow: -11px 0px 7px -5px #eff0f3;
 }
 
-.app{
- 
-    display: flex;
-    justify-content: center;
-    flex-direction: column;
-
+.app {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
 }
 
-.description{       
+.description {
   width: 1000px;
   align-self: center;
   text-align: center;
 }
 
-.input-container{
-    max-width: 1000px;
-    width: -webkit-fill-available;
-    display: flex;
-    flex-direction: column;
-    align-self: center;
-}
-
-.button-container {
-  align-self: center;
-  align-items: center;
+.input-container {
+  max-width: 1000px;
+  width: -webkit-fill-available;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
+  align-self: center;
 }

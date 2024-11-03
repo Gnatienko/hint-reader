@@ -1,15 +1,17 @@
+// App.js
 import "./App.css"
-import { Input, Button, Divider, Slider, Radio, TreeSelect } from "antd"
+import { Input, Divider } from "antd"
 import React, { useState } from "react"
 import ReadingArea from "./ReadingArea"
+import Menu from "./Menu" // Import the Menu component
+
 const { TextArea } = Input
 
 function App() {
   const [inputText, setInputText] = useState("Enter text here")
   const [wordObjects, setWordObjects] = useState([])
   const [textSize, setTextSize] = useState(20)
-  const [translationOpacity, SetTranslationOpacity] = useState(10)
-
+  const [translationOpacity, setTranslationOpacity] = useState(10)
   const [language, setLanguage] = useState("uk")
   const [languageFrom, setLanguageFrom] = useState("auto")
 
@@ -54,96 +56,19 @@ function App() {
           defaultValue="Enter text here"
           onChange={(e) => setInputText(e.target.value)}
         />
-        <div className="button-container">
-          <Button
-            type="primary"
-            style={{ width: 100, alignSelf: "center" }}
-            onClick={handleButtonClick}
-          >
-            Process
-          </Button>
-          <div
-            style={{
-              alignSelf: "center",
-              display: "flex",
-            }}
-          >
-            <div
-              style={{
-                width: 200,
-                margin: 20,
-              }}
-            >
-              Text size:
-              <Slider
-                min={15}
-                max={50}
-                onChange={(e) => setTextSize(e)}
-                value={textSize}
-              />
-            </div>
-            <div
-              style={{
-                width: 200,
-                margin: 20,
-              }}
-            >
-              Translation opacity:
-              <Slider
-                min={1}
-                max={20}
-                onChange={(e) => SetTranslationOpacity(e)}
-                value={translationOpacity}
-              />
-            </div>
-          </div>{" "}
-          <TreeSelect
-            showSearch
-            style={{ width: "100%" }}
-            value={languageFrom}
-            dropdownStyle={{ maxHeight: 400, overflow: "auto" }}
-            placeholder="Please select"
-            allowClear
-            treeDefaultExpandAll
-            onChange={(e) => {
-              setLanguageFrom(e)
-            }}
-            treeData={[
-              {
-                value: "auto",
-                title: "auto",
-              },
-              {
-                value: "es",
-                title: "es",
-              },
-              {
-                value: "en",
-                title: "en",
-              },
-              {
-                value: "bg",
-                title: "bg",
-              },
-            ]}
-          />
-          &nbsp; &rarr; &nbsp;
-          <Radio.Group
-            style={{
-              display: "flex",
-              flexDirection: "row",
-            }}
-            value={language}
-            buttonStyle="solid"
-            onChange={(e) => {
-              setLanguage(e.target.value)
-            }}
-          >
-            <Radio.Button value="en">English</Radio.Button>
-            <Radio.Button value="uk">Українська</Radio.Button>
-          </Radio.Group>
-        </div>
-
+        <Menu
+          inputText={inputText}
+          setInputText={setInputText}
+          handleButtonClick={handleButtonClick}
+          textSize={textSize}
+          setTextSize={setTextSize}
+          translationOpacity={translationOpacity}
+          setTranslationOpacity={setTranslationOpacity}
+          languageFrom={languageFrom}
+          setLanguageFrom={setLanguageFrom}
+          language={language}
+          setLanguage={setLanguage}
+        />
         <ReadingArea
           wordObjects={wordObjects}
           textSize={textSize}

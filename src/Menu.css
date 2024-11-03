@@ -1,0 +1,6 @@
+.menu {
+  align-self: center;
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+}
