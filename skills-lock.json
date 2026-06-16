@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "supaspec-builder": {
+      "source": "super-full-stack/supaspec-builder",
+      "sourceType": "github",
+      "computedHash": "51ec01c64c6af6c5577b600c372a84824f5957baa86fa35d9e80fd74f5293efc"
+    }
+  }
+}
