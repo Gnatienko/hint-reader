@@ -54,9 +54,10 @@ export function PaginatedReadingArea({
     for (let i = 0; i < children.length; i++) {
       const el = children[i] as HTMLElement;
       const top = el.offsetTop;
+      const bottom = top + el.offsetHeight;
 
       if (
-        top >= pageStartTop + pageHeight &&
+        bottom > pageStartTop + pageHeight &&
         newPages[newPages.length - 1].length > 0
       ) {
         newPages.push([]);
