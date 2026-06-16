@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "antd";
 import { LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { WordPair } from "./WordPair";
@@ -29,6 +29,10 @@ export function PaginatedReadingArea({
   const [pages, setPages] = useState<number[][]>([]);
   const measureRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const documentKey = useMemo(
+    () => wordObjects.map((item) => item.word).join("\u0000"),
+    [wordObjects],
+  );
 
   const computePages = useCallback(() => {
     const measureEl = measureRef.current;
@@ -67,7 +71,7 @@ export function PaginatedReadingArea({
 
   useLayoutEffect(() => {
     computePages();
-  }, [wordObjects, textSize, opacity, knownWords, computePages]);
+  }, [documentKey, textSize, opacity, knownWords, computePages]);
 
   useEffect(() => {
     const viewportEl = viewportRef.current;
@@ -80,7 +84,7 @@ export function PaginatedReadingArea({
 
   useEffect(() => {
     setCurrentPage(0);
-  }, [wordObjects, textSize]);
+  }, [documentKey, textSize]);
 
   useEffect(() => {
     if (pages.length > 0 && currentPage >= pages.length) {

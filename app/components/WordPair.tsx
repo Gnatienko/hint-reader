@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { needsTranslation } from "../lib/translation";
 import type { WordObject } from "../types";
 
 type Props = {
@@ -20,8 +21,13 @@ export function WordPair({
   const originalRef = useRef<HTMLSpanElement>(null);
   const [maskStyle, setMaskStyle] = useState<React.CSSProperties>({});
 
+  const shouldReserveTranslationSpace =
+    !isKnown && needsTranslation(item.word);
+  const showTranslation =
+    shouldReserveTranslationSpace && Boolean(item.translation);
+
   useLayoutEffect(() => {
-    if (!item.translation || !pairRef.current || !originalRef.current) return;
+    if (!showTranslation || !pairRef.current || !originalRef.current) return;
     const pairWidth = pairRef.current.offsetWidth;
     const originalWidth = originalRef.current.offsetWidth;
     if (pairWidth <= 0 || originalWidth <= 0) return;
@@ -30,33 +36,34 @@ export function WordPair({
       maskImage: `linear-gradient(to right, rgba(0,0,0,0.99) 0%, rgba(0,0,0,0.99) ${right}%, transparent ${right}%, transparent 100%)`,
       WebkitMaskImage: `linear-gradient(to right, rgba(0,0,0,0.99) 0%, rgba(0,0,0,0.99) ${right}%, transparent ${right}%, transparent 100%)`,
     });
-  }, [item.word, item.translation, textSize]);
+  }, [item.word, item.translation, textSize, showTranslation]);
 
   const handleClick = () => {
-    if (!item.translation) return;
+    if (!showTranslation) return;
     onToggleKnown(item.word);
   };
 
   return (
     <div ref={pairRef} className="word-pair" style={{ fontSize: textSize }}>
-      {item.translation && !isKnown && (
+      {shouldReserveTranslationSpace && (
         <span
           className="translation-with-mask"
           style={{
             fontSize: textSize * 0.55,
-            opacity,
+            opacity: showTranslation ? opacity : 0,
             lineHeight: 1.1,
-            ...maskStyle,
+            ...(showTranslation ? maskStyle : {}),
           }}
+          aria-hidden={!showTranslation}
         >
-          {item.translation}
+          {showTranslation ? item.translation : "\u00a0"}
         </span>
       )}
       <span
         ref={originalRef}
         style={{
           lineHeight: 1.2,
-          cursor: item.translation ? "pointer" : "default",
+          cursor: showTranslation ? "pointer" : "default",
         }}
         onClick={handleClick}
       >
@@ -65,4 +72,3 @@ export function WordPair({
     </div>
   );
 }
-
