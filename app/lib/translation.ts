@@ -1,11 +1,63 @@
 import { Language, LanguageFrom, WordObject } from "../types";
 
+const TRANSLATION_DICTIONARY_KEY = "hint-reader-translation-dictionary";
+
+type TranslationDictionary = Record<string, string>;
+
+const translationDictionary: TranslationDictionary = {};
+let translationDictionaryLoaded = false;
+
+function getDictionaryKey(
+  word: string,
+  languageFrom: LanguageFrom,
+  language: Language,
+): string {
+  return `${languageFrom}:${language}:${word.trim().toLowerCase()}`;
+}
+
+function ensureTranslationDictionaryLoaded(): void {
+  if (translationDictionaryLoaded || typeof window === "undefined") return;
+  translationDictionaryLoaded = true;
+  try {
+    const raw = window.localStorage.getItem(TRANSLATION_DICTIONARY_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return;
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === "string") {
+        translationDictionary[key] = value;
+      }
+    }
+  } catch {
+    // ignore invalid dictionary payloads
+  }
+}
+
+function persistTranslationDictionary(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      TRANSLATION_DICTIONARY_KEY,
+      JSON.stringify(translationDictionary),
+    );
+  } catch {
+    // ignore write errors
+  }
+}
+
 export async function translateWord(
   word: string,
   languageFrom: LanguageFrom,
   language: Language,
 ): Promise<string> {
   if (!word.trim()) return "";
+  ensureTranslationDictionaryLoaded();
+
+  const dictionaryKey = getDictionaryKey(word, languageFrom, language);
+  const cached = translationDictionary[dictionaryKey];
+  if (typeof cached === "string") {
+    return cached;
+  }
 
   const params = new URLSearchParams({
     client: "gtx",
@@ -21,7 +73,12 @@ export async function translateWord(
     );
     const data = await res.json();
     const first = data?.[0]?.[0]?.[0];
-    return typeof first === "string" ? first : "";
+    if (typeof first === "string") {
+      translationDictionary[dictionaryKey] = first;
+      persistTranslationDictionary();
+      return first;
+    }
+    return "";
   } catch {
     return "";
   }
