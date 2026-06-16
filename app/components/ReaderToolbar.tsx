@@ -11,12 +11,14 @@ type Props = {
   onOpenSettings: () => void;
   onOpenTexts: () => void;
   onOpenKnownWords: () => void;
+  highlightTexts?: boolean;
 };
 
 export function ReaderToolbar({
   onOpenSettings,
   onOpenTexts,
   onOpenKnownWords,
+  highlightTexts = false,
 }: Props) {
   return (
     <div className="reader-toolbar">
@@ -35,7 +37,7 @@ export function ReaderToolbar({
           type="text"
           shape="circle"
           icon={<FolderOpenOutlined />}
-          className="reader-toolbar-btn"
+          className={`reader-toolbar-btn${highlightTexts ? " reader-toolbar-btn--highlight" : ""}`}
           aria-label="Texts"
           onClick={onOpenTexts}
         />

@@ -9,6 +9,7 @@ import { ReaderThemeProvider } from "./components/ReaderThemeProvider";
 import { ReaderToolbar } from "./components/ReaderToolbar";
 import { TextsModal } from "./components/TextsModal";
 import { useHintReaderState } from "./hooks/useHintReaderState";
+import { WELCOME_DOCUMENT_ID } from "./lib/defaultText";
 import type { SavedText } from "./types";
 
 export default function Home() {
@@ -18,6 +19,7 @@ export default function Home() {
 
   const {
     wordObjects,
+    activeDocumentId,
     textSize,
     setTextSize,
     translationOpacity,
@@ -46,6 +48,7 @@ export default function Home() {
 
   const opacity = Math.max(1, Math.min(30, translationOpacity)) / 100;
   const hasText = wordObjects.length > 0;
+  const isWelcomeDocument = activeDocumentId === WELCOME_DOCUMENT_ID;
 
   const openTextsModal = () => {
     refreshSavedTextsList();
@@ -79,6 +82,7 @@ export default function Home() {
           onOpenSettings={() => setIsReaderSettingsOpen(true)}
           onOpenTexts={openTextsModal}
           onOpenKnownWords={() => setIsSettingsOpen(true)}
+          highlightTexts={isWelcomeDocument}
         />
 
         <main className="reader-main">

@@ -20,6 +20,7 @@ const PREFETCH_PAGES_AHEAD = 2;
 
 type HintReaderState = {
   wordObjects: WordObject[];
+  activeDocumentId: string | null;
   activeDocumentName: string | null;
   textSize: number;
   setTextSize: (size: number) => void;
@@ -567,6 +568,7 @@ export function useHintReaderState(): HintReaderState {
 
   return {
     wordObjects,
+    activeDocumentId,
     activeDocumentName,
     textSize,
     setTextSize,

@@ -43,6 +43,26 @@ body {
   background: rgba(139, 105, 20, 0.08) !important;
 }
 
+@keyframes reader-toolbar-highlight-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(139, 105, 20, 0.22);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(139, 105, 20, 0.38);
+  }
+}
+
+.reader-toolbar-btn--highlight {
+  color: #8b6914 !important;
+  background: rgba(139, 105, 20, 0.14) !important;
+  animation: reader-toolbar-highlight-pulse 2.4s ease-in-out infinite;
+}
+
+.reader-toolbar-btn--highlight:hover {
+  background: rgba(139, 105, 20, 0.2) !important;
+}
+
 .reader-main {
   flex: 1;
   display: flex;
