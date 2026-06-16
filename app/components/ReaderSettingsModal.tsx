@@ -90,11 +90,6 @@ export function ReaderSettingsModal({
             />
           </div>
         </Flex>
-
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          Translation is performed via an unofficial HTTP interface to Google
-          Translate. Only nearby pages are translated while you read.
-        </Text>
       </Space>
     </Modal>
   );
