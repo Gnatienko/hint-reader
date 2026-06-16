@@ -12,7 +12,11 @@ import {
   Typography,
 } from "antd";
 import { FileTextOutlined } from "@ant-design/icons";
-import { BOOK_FILE_ACCEPT } from "../lib/bookFormats";
+import {
+  BOOK_FILE_ACCEPT,
+  getFileExtension,
+  isSupportedBookExtension,
+} from "../lib/bookFormats";
 import type { SavedText } from "../types";
 
 const { Paragraph, Text } = Typography;
@@ -43,15 +47,18 @@ export function TextsModal({
   const { message } = App.useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isOpeningFile, setIsOpeningFile] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const openFilePicker = () => {
     fileInputRef.current?.click();
   };
 
-  const onFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
+  const openFile = async (file: File) => {
+    const extension = getFileExtension(file.name);
+    if (!isSupportedBookExtension(extension)) {
+      message.error("Unsupported file type. Use txt, epub, pdf, docx, fb2, or rtf.");
+      return;
+    }
 
     setIsOpeningFile(true);
     try {
@@ -64,6 +71,31 @@ export function TextsModal({
     } finally {
       setIsOpeningFile(false);
     }
+  };
+
+  const onFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    await openFile(file);
+  };
+
+  const onDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const onDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+    setIsDragOver(false);
+  };
+
+  const onDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOver(false);
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+    await openFile(file);
   };
 
   return (
@@ -86,31 +118,44 @@ export function TextsModal({
       >
         <Space orientation="vertical" size="large" style={{ width: "100%" }}>
           <div>
-            <Text strong>Paste text</Text>
-            <Paragraph type="secondary" style={{ marginTop: 4, marginBottom: 8 }}>
-              Paste a text to read. It will be saved automatically. Translations
-              load page by page as you read.
-            </Paragraph>
+            <div
+              className={`texts-drop-zone${isDragOver ? " texts-drop-zone--active" : ""}`}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+            >
+              <Button
+                type="primary"
+                icon={<FileTextOutlined />}
+                onClick={openFilePicker}
+                loading={isOpeningFile}
+              >
+                Open book
+              </Button>
+              <Text type="secondary" className="texts-drop-zone-hint">
+                Drop a book file here
+              </Text>
+            </div>
+
+            <Text type="secondary" className="texts-paste-label">
+              or Paste text
+            </Text>
+
             <Input.TextArea
               value={pasteInput}
               onChange={(e) => onPasteInputChange(e.target.value)}
               rows={6}
               placeholder="Paste your text here..."
             />
-          </div>
-
-          <Flex gap={12} wrap>
             <Button
               type="primary"
               onClick={onLoadPastedText}
               disabled={!pasteInput.trim()}
+              style={{ marginTop: 12 }}
             >
               Load text
             </Button>
-            <Button icon={<FileTextOutlined />} onClick={openFilePicker} loading={isOpeningFile}>
-              Open book file
-            </Button>
-          </Flex>
+          </div>
 
           <Divider style={{ margin: 0 }} />
 
