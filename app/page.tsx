@@ -94,7 +94,7 @@ export default function Home() {
                 onPageChange={handlePageChange}
               />
             ) : (
-              <ReaderEmptyState onOpenTexts={openTextsModal} />
+              <ReaderEmptyState />
             )}
           </div>
         </main>
