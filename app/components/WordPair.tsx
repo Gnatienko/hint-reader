@@ -43,8 +43,17 @@ export function WordPair({
     onToggleKnown(item.word);
   };
 
+  const hintLineHeight = textSize * 0.55 * 1.1;
+
   return (
-    <div ref={pairRef} className="word-pair" style={{ fontSize: textSize }}>
+    <div
+      ref={pairRef}
+      className="word-pair"
+      style={{
+        fontSize: textSize,
+        paddingTop: hintLineHeight,
+      }}
+    >
       {shouldReserveTranslationSpace && (
         <span
           className="translation-with-mask"
@@ -56,7 +65,7 @@ export function WordPair({
           }}
           aria-hidden={!showTranslation}
         >
-          {showTranslation ? item.translation : "\u00a0"}
+          {showTranslation ? item.translation : ""}
         </span>
       )}
       <span
