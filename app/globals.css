@@ -194,6 +194,35 @@ body {
   margin-left: 0;
 }
 
+.word-format {
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.word-format--line {
+  flex-basis: 100%;
+  width: 0;
+  height: 0;
+}
+
+.word-format--paragraph {
+  flex-basis: 100%;
+  width: 0;
+  height: 1.2em;
+}
+
+.word-format--indent {
+  display: inline-block;
+  width: 1.8em;
+  height: 0;
+}
+
+.word-format--tab {
+  display: inline-block;
+  width: 2em;
+  height: 0;
+}
+
 .translation-with-mask {
   position: absolute;
   top: 0;

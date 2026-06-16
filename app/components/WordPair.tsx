@@ -1,5 +1,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { needsTranslation } from "../lib/translation";
+import {
+  getFormattingWhitespaceKind,
+  needsTranslation,
+} from "../lib/translation";
 import type { WordObject } from "../types";
 
 type Props = {
@@ -26,9 +29,12 @@ export function WordPair({
   const showTranslation =
     shouldReserveTranslationSpace && Boolean(item.translation);
   const sticksToPreviousWord = /^[.,!?;:»)\]]$/u.test(item.word);
+  const formattingKind = getFormattingWhitespaceKind(item.word);
 
   useLayoutEffect(() => {
-    if (!showTranslation || !pairRef.current || !originalRef.current) return;
+    if (formattingKind || !showTranslation || !pairRef.current || !originalRef.current) {
+      return;
+    }
     const pairWidth = pairRef.current.offsetWidth;
     const originalWidth = originalRef.current.offsetWidth;
     if (pairWidth <= 0 || originalWidth <= 0) return;
@@ -37,7 +43,32 @@ export function WordPair({
       maskImage: `linear-gradient(to right, rgba(0,0,0,0.99) 0%, rgba(0,0,0,0.99) ${right}%, transparent ${right}%, transparent 100%)`,
       WebkitMaskImage: `linear-gradient(to right, rgba(0,0,0,0.99) 0%, rgba(0,0,0,0.99) ${right}%, transparent ${right}%, transparent 100%)`,
     });
-  }, [item.word, item.translation, textSize, showTranslation]);
+  }, [formattingKind, item.word, item.translation, textSize, showTranslation]);
+
+  if (formattingKind) {
+    if (formattingKind === "line") {
+      return (
+        <>
+          <span className="word-format word-format--line" aria-hidden />
+          <span className="word-format word-format--indent" aria-hidden />
+        </>
+      );
+    }
+    if (formattingKind === "paragraph") {
+      return (
+        <>
+          <span className="word-format word-format--paragraph" aria-hidden />
+          <span className="word-format word-format--indent" aria-hidden />
+        </>
+      );
+    }
+    return (
+      <span
+        className={`word-format word-format--${formattingKind}`}
+        aria-hidden
+      />
+    );
+  }
 
   const handleClick = () => {
     if (!showTranslation) return;
