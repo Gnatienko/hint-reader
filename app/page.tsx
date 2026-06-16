@@ -44,6 +44,7 @@ export default function Home() {
     handleLoadSaved,
     handleDeleteSaved,
     handlePageChange,
+    activeReadingProgress,
   } = useHintReaderState();
 
   const opacity = Math.max(1, Math.min(30, translationOpacity)) / 100;
@@ -94,6 +95,7 @@ export default function Home() {
                 opacity={opacity}
                 knownWords={knownWords}
                 translating={translating}
+                savedProgressPercent={activeReadingProgress}
                 onToggleKnown={toggleKnownWord}
                 onPageChange={handlePageChange}
               />

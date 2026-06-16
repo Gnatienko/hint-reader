@@ -4,6 +4,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Button } from "antd";
 import { LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { WordPair } from "./WordPair";
+import {
+  calculateReadingProgress,
+  formatProgressDisplay,
+  pageFromProgress,
+} from "../lib/readingProgress";
 import type { WordObject } from "../types";
 
 type Props = {
@@ -12,6 +17,7 @@ type Props = {
   opacity: number;
   knownWords: string[];
   translating?: boolean;
+  savedProgressPercent?: number;
   onToggleKnown: (word: string) => void;
   onPageChange?: (currentPage: number, pages: number[][]) => void;
 };
@@ -22,6 +28,7 @@ export function PaginatedReadingArea({
   opacity,
   knownWords,
   translating = false,
+  savedProgressPercent = 0,
   onToggleKnown,
   onPageChange,
 }: Props) {
@@ -30,6 +37,8 @@ export function PaginatedReadingArea({
   const [pagesDocumentKey, setPagesDocumentKey] = useState("");
   const measureRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const savedProgressRef = useRef(savedProgressPercent);
+  savedProgressRef.current = savedProgressPercent;
   const documentKey = useMemo(
     () => wordObjects.map((item) => item?.word ?? "").join("\u0000"),
     [wordObjects],
@@ -87,10 +96,13 @@ export function PaginatedReadingArea({
   }, [computePages]);
 
   const pagesAreCurrent = pagesDocumentKey === documentKey;
+  const pageRestoreKey = `${documentKey}:${pages.length}:${textSize}`;
 
   useEffect(() => {
-    setCurrentPage(0);
-  }, [documentKey, textSize]);
+    if (!pagesAreCurrent || pages.length === 0) return;
+    const page = pageFromProgress(savedProgressRef.current, pages.length);
+    setCurrentPage(page);
+  }, [pageRestoreKey, pagesAreCurrent, pages.length]);
 
   useEffect(() => {
     if (pages.length > 0 && currentPage >= pages.length) {
@@ -122,6 +134,11 @@ export function PaginatedReadingArea({
 
   const pageIndices = pagesAreCurrent ? (pages[currentPage] ?? []) : [];
   const totalPages = pagesAreCurrent ? Math.max(pages.length, 1) : 1;
+  const progressLabel = formatProgressDisplay(
+    pagesAreCurrent && pages.length > 0
+      ? calculateReadingProgress(currentPage, pages.length)
+      : savedProgressPercent,
+  );
 
   return (
     <div className="reading-paginated">
@@ -174,7 +191,7 @@ export function PaginatedReadingArea({
           onClick={() => setCurrentPage((page) => Math.max(page - 1, 0))}
         />
         <span className="reading-pagination-label">
-          {currentPage + 1} / {totalPages}
+          {currentPage + 1} / {totalPages} · {progressLabel}%
           {translating ? " · …" : ""}
         </span>
         <Button

@@ -17,6 +17,7 @@ import {
   getFileExtension,
   isSupportedBookExtension,
 } from "../lib/bookFormats";
+import { formatProgressDisplay } from "../lib/readingProgress";
 import type { SavedText } from "../types";
 
 const { Paragraph, Text } = Typography;
@@ -162,8 +163,8 @@ export function TextsModal({
           <div>
             <Text strong>Saved texts</Text>
             <Paragraph type="secondary" style={{ marginTop: 4, marginBottom: 12 }}>
-              Open a previously saved text. Current reading progress will be
-              replaced.
+              Open a previously saved text. Your reading position is restored
+              automatically.
             </Paragraph>
             {savedTexts.length === 0 ? (
               <Paragraph type="secondary">No saved texts yet.</Paragraph>
@@ -181,7 +182,8 @@ export function TextsModal({
                       <br />
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         {new Date(saved.createdAt).toLocaleString()} ·{" "}
-                        {saved.wordObjects.length} words
+                        {saved.wordObjects.length} words ·{" "}
+                        {formatProgressDisplay(saved.readingProgress ?? 0)}%
                       </Text>
                     </div>
                     <Space>

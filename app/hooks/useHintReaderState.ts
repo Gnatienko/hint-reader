@@ -6,6 +6,7 @@ import {
   WELCOME_DOCUMENT_NAME,
   WELCOME_TEXT,
 } from "../lib/defaultText";
+import { calculateReadingProgress } from "../lib/readingProgress";
 import { getSavedTexts, saveSavedText, deleteSavedText } from "../lib/savedTexts";
 import { getDisplayNameFromFileName } from "../lib/bookFormats";
 import { extractTextFromBookFile } from "../lib/extractBookText";
@@ -46,6 +47,7 @@ type HintReaderState = {
   handleLoadSaved: (saved: SavedText) => void;
   handleDeleteSaved: (id: string) => void;
   handlePageChange: (currentPage: number, pages: number[][]) => void;
+  activeReadingProgress: number;
 };
 
 function syncTranslatedIndices(wordObjects: WordObject[]): Set<number> {
@@ -69,6 +71,7 @@ function buildSavedTextSnapshot(
   translationOpacity: number,
   language: Language,
   languageFrom: LanguageFrom,
+  readingProgress: number,
   createdAt?: number,
 ): SavedText {
   return {
@@ -83,6 +86,7 @@ function buildSavedTextSnapshot(
     translationOpacity,
     language,
     languageFrom,
+    readingProgress,
   };
 }
 
@@ -104,6 +108,7 @@ export function useHintReaderState(): HintReaderState {
   const [knownWords, setKnownWords] = useState<string[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [savedTextsList, setSavedTextsList] = useState<SavedText[]>([]);
+  const [activeReadingProgress, setActiveReadingProgress] = useState(0);
 
   const translatedIndicesRef = useRef(new Set<number>());
   const inFlightIndicesRef = useRef(new Set<number>());
@@ -113,10 +118,36 @@ export function useHintReaderState(): HintReaderState {
   const translateGenerationRef = useRef(0);
   const skipLanguageResetRef = useRef(true);
   const initializedRef = useRef(false);
+  const persistContextRef = useRef({
+    activeDocumentId: null as string | null,
+    activeDocumentName: null as string | null,
+    activeSourceFileName: null as string | null,
+    inputText: "",
+    knownWords: [] as string[],
+    activeReadingProgress: 0,
+  });
 
   useEffect(() => {
     wordObjectsRef.current = wordObjects;
   }, [wordObjects]);
+
+  useEffect(() => {
+    persistContextRef.current = {
+      activeDocumentId,
+      activeDocumentName,
+      activeSourceFileName,
+      inputText,
+      knownWords,
+      activeReadingProgress,
+    };
+  }, [
+    activeDocumentId,
+    activeDocumentName,
+    activeSourceFileName,
+    inputText,
+    knownWords,
+    activeReadingProgress,
+  ]);
 
   const persistDocument = useCallback(
     (
@@ -126,6 +157,7 @@ export function useHintReaderState(): HintReaderState {
       text: string,
       objects: WordObject[],
       words: string[],
+      readingProgress: number,
     ) => {
       const existing = getSavedTexts().find((item) => item.id === docId);
       const snapshot = buildSavedTextSnapshot(
@@ -139,11 +171,29 @@ export function useHintReaderState(): HintReaderState {
         translationOpacity,
         language,
         languageFrom,
+        readingProgress,
         existing?.createdAt,
       );
       saveSavedText(snapshot);
     },
     [textSize, translationOpacity, language, languageFrom],
+  );
+
+  const persistNow = useCallback(
+    (objects?: WordObject[]) => {
+      const ctx = persistContextRef.current;
+      if (!ctx.activeDocumentId || !ctx.activeDocumentName) return;
+      persistDocument(
+        ctx.activeDocumentId,
+        ctx.activeDocumentName,
+        ctx.activeSourceFileName,
+        ctx.inputText,
+        objects ?? wordObjectsRef.current,
+        ctx.knownWords,
+        ctx.activeReadingProgress,
+      );
+    },
+    [persistDocument],
   );
 
   const openDocument = useCallback(
@@ -154,7 +204,11 @@ export function useHintReaderState(): HintReaderState {
       docId: string,
       words: string[],
       objects?: WordObject[],
+      readingProgress?: number,
     ) => {
+      const existing = getSavedTexts().find((item) => item.id === docId);
+      const progress = readingProgress ?? existing?.readingProgress ?? 0;
+
       const tokenObjects = objects ?? buildWordObjectsFromText(text);
       translatedIndicesRef.current = syncTranslatedIndices(tokenObjects);
       inFlightIndicesRef.current.clear();
@@ -166,6 +220,7 @@ export function useHintReaderState(): HintReaderState {
       setActiveDocumentId(docId);
       setActiveDocumentName(name);
       setActiveSourceFileName(sourceFileName);
+      setActiveReadingProgress(progress);
 
       persistDocument(
         docId,
@@ -174,6 +229,7 @@ export function useHintReaderState(): HintReaderState {
         text,
         tokenObjects,
         words,
+        progress,
       );
     },
     [persistDocument],
@@ -255,12 +311,12 @@ export function useHintReaderState(): HintReaderState {
           translatedIndicesRef.current.add(index);
           inFlightIndicesRef.current.delete(index);
 
-          setWordObjects((prev) => {
-            const next = [...prev];
-            if (!next[index]) return prev;
-            next[index] = { ...next[index], translation };
-            return next;
-          });
+          const next = [...wordObjectsRef.current];
+          if (!next[index]) continue;
+          next[index] = { ...next[index], translation };
+          wordObjectsRef.current = next;
+          setWordObjects(next);
+          persistNow(next);
         }
       } finally {
         if (
@@ -271,13 +327,16 @@ export function useHintReaderState(): HintReaderState {
         }
       }
     },
-    [],
+    [persistNow],
   );
 
   const handlePageChange = useCallback(
     (currentPage: number, pages: number[][]) => {
       lastPagesRef.current = pages;
       lastCurrentPageRef.current = currentPage;
+
+      const progress = calculateReadingProgress(currentPage, pages.length);
+      setActiveReadingProgress(progress);
 
       const endPage = Math.min(
         currentPage + PREFETCH_PAGES_AHEAD,
@@ -307,6 +366,7 @@ export function useHintReaderState(): HintReaderState {
         saved.id,
         saved.knownWords,
         saved.wordObjects,
+        saved.readingProgress ?? 0,
       );
     },
     [openDocument],
@@ -426,6 +486,7 @@ export function useHintReaderState(): HintReaderState {
         inputText,
         wordObjects,
         knownWords,
+        activeReadingProgress,
       );
     }, 400);
     return () => window.clearTimeout(timer);
@@ -436,6 +497,7 @@ export function useHintReaderState(): HintReaderState {
     inputText,
     wordObjects,
     knownWords,
+    activeReadingProgress,
     persistDocument,
   ]);
 
@@ -452,7 +514,9 @@ export function useHintReaderState(): HintReaderState {
     const cleared = wordObjectsRef.current.map((item) =>
       needsTranslation(item.word) ? { ...item, translation: "" } : item,
     );
+    wordObjectsRef.current = cleared;
     setWordObjects(cleared);
+    persistNow(cleared);
 
     const pages = lastPagesRef.current;
     if (pages.length === 0) return;
@@ -470,7 +534,7 @@ export function useHintReaderState(): HintReaderState {
       languageFrom,
       language,
     );
-  }, [language, languageFrom, ensureTranslatedForPages]);
+  }, [language, languageFrom, ensureTranslatedForPages, persistNow]);
 
   const handleOpenTextFile = useCallback(
     async (file: File) => {
@@ -481,14 +545,26 @@ export function useHintReaderState(): HintReaderState {
         (item) => item.sourceFileName === file.name || item.name === displayName,
       );
 
-      const docId = existing?.id ?? crypto.randomUUID();
-      openDocument(
-        text,
-        displayName,
-        file.name,
-        docId,
-        existing?.knownWords ?? [],
-      );
+      if (existing) {
+        setTextSize(existing.textSize);
+        setTranslationOpacity(existing.translationOpacity);
+        setLanguage(existing.language);
+        setLanguageFrom(existing.languageFrom);
+        openDocument(
+          text,
+          displayName,
+          file.name,
+          existing.id,
+          existing.knownWords,
+          existing.inputText === text && existing.wordObjects.length > 0
+            ? existing.wordObjects
+            : undefined,
+          existing.readingProgress ?? 0,
+        );
+        return;
+      }
+
+      openDocument(text, displayName, file.name, crypto.randomUUID(), []);
     },
     [openDocument],
   );
@@ -594,5 +670,6 @@ export function useHintReaderState(): HintReaderState {
     handleLoadSaved,
     handleDeleteSaved,
     handlePageChange,
+    activeReadingProgress,
   };
 }

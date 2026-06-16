@@ -19,6 +19,7 @@ export type SavedText = {
   translationOpacity: number;
   language: Language;
   languageFrom: LanguageFrom;
+  readingProgress?: number;
 };
 
 export const SAVED_TEXTS_KEY = "hint-reader-saved-texts";
