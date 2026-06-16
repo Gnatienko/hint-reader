@@ -132,7 +132,7 @@ body {
   flex-wrap: wrap;
   align-content: flex-start;
   align-items: flex-end;
-  gap: 10px var(--word-gap-x);
+  gap: 3px var(--word-gap-x);
   padding: 8px 4px;
   font-family: Georgia, "Times New Roman", serif;
   line-height: 1.65;
@@ -261,7 +261,9 @@ body {
   border-radius: 12px;
   background: rgba(255, 252, 247, 0.7);
   text-align: center;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .texts-drop-zone--active {
