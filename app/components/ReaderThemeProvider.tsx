@@ -1,6 +1,6 @@
 "use client";
 
-import { ConfigProvider, theme } from "antd";
+import { App, ConfigProvider, theme } from "antd";
 import type { ReactNode } from "react";
 
 type Props = {
@@ -20,7 +20,7 @@ export function ReaderThemeProvider({ children }: Props) {
         },
       }}
     >
-      {children}
+      <App>{children}</App>
     </ConfigProvider>
   );
 }

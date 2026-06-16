@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
+  App,
   Button,
   Divider,
   Flex,
@@ -11,6 +12,7 @@ import {
   Typography,
 } from "antd";
 import { FileTextOutlined } from "@ant-design/icons";
+import { BOOK_FILE_ACCEPT } from "../lib/bookFormats";
 import type { SavedText } from "../types";
 
 const { Paragraph, Text } = Typography;
@@ -38,7 +40,9 @@ export function TextsModal({
   onOpenSaved,
   onDeleteSaved,
 }: Props) {
+  const { message } = App.useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isOpeningFile, setIsOpeningFile] = useState(false);
 
   const openFilePicker = () => {
     fileInputRef.current?.click();
@@ -48,8 +52,18 @@ export function TextsModal({
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    await onOpenTextFile(file);
-    onClose();
+
+    setIsOpeningFile(true);
+    try {
+      await onOpenTextFile(file);
+      onClose();
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : "Failed to open file",
+      );
+    } finally {
+      setIsOpeningFile(false);
+    }
   };
 
   return (
@@ -57,7 +71,7 @@ export function TextsModal({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".txt,text/plain"
+        accept={BOOK_FILE_ACCEPT}
         hidden
         onChange={onFileSelected}
       />
@@ -93,8 +107,8 @@ export function TextsModal({
             >
               Load text
             </Button>
-            <Button icon={<FileTextOutlined />} onClick={openFilePicker}>
-              Open .txt file
+            <Button icon={<FileTextOutlined />} onClick={openFilePicker} loading={isOpeningFile}>
+              Open book file
             </Button>
           </Flex>
 

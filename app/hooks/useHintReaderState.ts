@@ -7,6 +7,8 @@ import {
   WELCOME_TEXT,
 } from "../lib/defaultText";
 import { getSavedTexts, saveSavedText, deleteSavedText } from "../lib/savedTexts";
+import { getDisplayNameFromFileName } from "../lib/bookFormats";
+import { extractTextFromBookFile } from "../lib/extractBookText";
 import {
   buildWordObjectsFromText,
   needsTranslation,
@@ -471,8 +473,8 @@ export function useHintReaderState(): HintReaderState {
 
   const handleOpenTextFile = useCallback(
     async (file: File) => {
-      const text = await file.text();
-      const displayName = file.name.replace(/\.txt$/i, "") || file.name;
+      const text = await extractTextFromBookFile(file);
+      const displayName = getDisplayNameFromFileName(file.name) || file.name;
 
       const existing = getSavedTexts().find(
         (item) => item.sourceFileName === file.name || item.name === displayName,
