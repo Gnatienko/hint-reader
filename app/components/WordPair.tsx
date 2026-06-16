@@ -25,6 +25,7 @@ export function WordPair({
     !isKnown && needsTranslation(item.word);
   const showTranslation =
     shouldReserveTranslationSpace && Boolean(item.translation);
+  const sticksToPreviousWord = /^[.,!?;:»)\]]$/u.test(item.word);
 
   useLayoutEffect(() => {
     if (!showTranslation || !pairRef.current || !originalRef.current) return;
@@ -48,7 +49,7 @@ export function WordPair({
   return (
     <div
       ref={pairRef}
-      className="word-pair"
+      className={`word-pair${sticksToPreviousWord ? " word-pair--punctuation" : ""}`}
       style={{
         fontSize: textSize,
         paddingTop: hintLineHeight,

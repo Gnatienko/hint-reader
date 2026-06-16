@@ -127,11 +127,12 @@ body {
 }
 
 .reading-area {
+  --word-gap-x: 14px;
   display: flex;
   flex-wrap: wrap;
   align-content: flex-start;
   align-items: flex-end;
-  gap: 10px 14px;
+  gap: 10px var(--word-gap-x);
   padding: 8px 4px;
   font-family: Georgia, "Times New Roman", serif;
   line-height: 1.65;
@@ -183,6 +184,14 @@ body {
   display: inline-block;
   vertical-align: bottom;
   overflow: hidden;
+}
+
+.word-pair--punctuation {
+  margin-left: calc(var(--word-gap-x) * -1);
+}
+
+.word-pair--punctuation:first-child {
+  margin-left: 0;
 }
 
 .translation-with-mask {
