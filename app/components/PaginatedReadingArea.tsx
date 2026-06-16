@@ -27,10 +27,11 @@ export function PaginatedReadingArea({
 }: Props) {
   const [currentPage, setCurrentPage] = useState(0);
   const [pages, setPages] = useState<number[][]>([]);
+  const [pagesDocumentKey, setPagesDocumentKey] = useState("");
   const measureRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const documentKey = useMemo(
-    () => wordObjects.map((item) => item.word).join("\u0000"),
+    () => wordObjects.map((item) => item?.word ?? "").join("\u0000"),
     [wordObjects],
   );
 
@@ -42,6 +43,7 @@ export function PaginatedReadingArea({
     const children = measureEl.children;
     if (children.length === 0) {
       setPages([]);
+      setPagesDocumentKey(documentKey);
       return;
     }
 
@@ -68,7 +70,8 @@ export function PaginatedReadingArea({
     }
 
     setPages(newPages);
-  }, []);
+    setPagesDocumentKey(documentKey);
+  }, [documentKey]);
 
   useLayoutEffect(() => {
     computePages();
@@ -83,6 +86,8 @@ export function PaginatedReadingArea({
     return () => observer.disconnect();
   }, [computePages]);
 
+  const pagesAreCurrent = pagesDocumentKey === documentKey;
+
   useEffect(() => {
     setCurrentPage(0);
   }, [documentKey, textSize]);
@@ -94,9 +99,9 @@ export function PaginatedReadingArea({
   }, [pages, currentPage]);
 
   useEffect(() => {
-    if (pages.length === 0 || !onPageChange) return;
+    if (!pagesAreCurrent || pages.length === 0 || !onPageChange) return;
     onPageChange(currentPage, pages);
-  }, [currentPage, pages, onPageChange]);
+  }, [currentPage, pages, onPageChange, pagesAreCurrent]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -115,8 +120,8 @@ export function PaginatedReadingArea({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [pages.length]);
 
-  const pageIndices = pages[currentPage] ?? [];
-  const totalPages = Math.max(pages.length, 1);
+  const pageIndices = pagesAreCurrent ? (pages[currentPage] ?? []) : [];
+  const totalPages = pagesAreCurrent ? Math.max(pages.length, 1) : 1;
 
   return (
     <div className="reading-paginated">
@@ -124,6 +129,7 @@ export function PaginatedReadingArea({
         <div className="reading-area">
           {pageIndices.map((index) => {
             const item = wordObjects[index];
+            if (!item) return null;
             return (
               <WordPair
                 key={`${item.word}-${index}`}
@@ -143,16 +149,19 @@ export function PaginatedReadingArea({
         className="reading-area reading-area-measure"
         aria-hidden
       >
-        {wordObjects.map((item, index) => (
-          <WordPair
-            key={`measure-${item.word}-${index}`}
-            item={item}
-            textSize={textSize}
-            opacity={opacity}
-            isKnown={knownWords.includes(item.word.toLowerCase())}
-            onToggleKnown={onToggleKnown}
-          />
-        ))}
+        {wordObjects.map((item, index) => {
+          if (!item) return null;
+          return (
+            <WordPair
+              key={`measure-${item.word}-${index}`}
+              item={item}
+              textSize={textSize}
+              opacity={opacity}
+              isKnown={knownWords.includes(item.word.toLowerCase())}
+              onToggleKnown={onToggleKnown}
+            />
+          );
+        })}
       </div>
 
       <div className="reading-pagination">
@@ -172,7 +181,7 @@ export function PaginatedReadingArea({
           type="text"
           icon={<RightOutlined />}
           className="reading-pagination-btn"
-          disabled={currentPage >= pages.length - 1}
+          disabled={!pagesAreCurrent || currentPage >= pages.length - 1}
           aria-label="Next page"
           onClick={() =>
             setCurrentPage((page) => Math.min(page + 1, pages.length - 1))
