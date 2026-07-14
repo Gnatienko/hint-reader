@@ -182,7 +182,7 @@ export function TextsModal({
                       <br />
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         {new Date(saved.createdAt).toLocaleString()} ·{" "}
-                        {saved.wordObjects.length} words ·{" "}
+                        {saved.wordCount} words ·{" "}
                         {formatProgressDisplay(saved.readingProgress ?? 0)}%
                       </Text>
                     </div>

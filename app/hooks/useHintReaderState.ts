@@ -8,7 +8,7 @@ import { calculateReadingProgress } from "../lib/readingProgress";
 import { getSavedTexts, deleteSavedText } from "../lib/savedTexts";
 import { getDisplayNameFromFileName } from "../lib/bookFormats";
 import { extractTextFromBookFile } from "../lib/extractBookText";
-import { buildWordObjectsFromText } from "../lib/translation";
+import { buildWordObjectsFromDictionary } from "../lib/translation";
 import type { CefrLevel } from "../cefrWordLists";
 import type { Language, LanguageFrom, SavedText, WordObject } from "../types";
 import { useKnownWords } from "./useKnownWords";
@@ -115,7 +115,7 @@ export function useHintReaderState(): HintReaderState {
   ]);
 
   const persistNow = useCallback(
-    (objects?: WordObject[]) => {
+    () => {
       const ctx = persistContextRef.current;
       if (!ctx.activeDocumentId || !ctx.activeDocumentName) return;
       persistDocument(
@@ -123,7 +123,6 @@ export function useHintReaderState(): HintReaderState {
         ctx.activeDocumentName,
         ctx.activeSourceFileName,
         ctx.inputText,
-        objects ?? wordObjectsRef.current,
         ctx.knownWords,
         ctx.activeReadingProgress,
       );
@@ -154,13 +153,17 @@ export function useHintReaderState(): HintReaderState {
       sourceFileName: string | null,
       docId: string,
       words: string[],
-      objects?: WordObject[],
       readingProgress?: number,
+      langFromOverride?: LanguageFrom,
+      langOverride?: Language,
     ) => {
+      const langFrom = langFromOverride ?? languageFrom;
+      const lang = langOverride ?? language;
+
       const existing = getSavedTexts().find((item) => item.id === docId);
       const progress = readingProgress ?? existing?.readingProgress ?? 0;
 
-      const tokenObjects = objects ?? buildWordObjectsFromText(text);
+      const tokenObjects = buildWordObjectsFromDictionary(text, langFrom, lang);
       initDocument(tokenObjects);
 
       setInputText(text);
@@ -171,9 +174,9 @@ export function useHintReaderState(): HintReaderState {
       setActiveSourceFileName(sourceFileName);
       setActiveReadingProgress(progress);
 
-      persistDocument(docId, name, sourceFileName, text, tokenObjects, words, progress);
+      persistDocument(docId, name, sourceFileName, text, words, progress);
     },
-    [initDocument, persistDocument, setKnownWords],
+    [initDocument, persistDocument, setKnownWords, language, languageFrom],
   );
 
   const loadWelcomeDocument = useCallback(() => {
@@ -185,19 +188,19 @@ export function useHintReaderState(): HintReaderState {
         existing.sourceFileName ?? null,
         existing.id,
         existing.knownWords,
-        existing.wordObjects,
+        existing.readingProgress ?? 0,
+        existing.languageFrom,
+        existing.language,
       );
       return;
     }
 
-    const objects = buildWordObjectsFromText(WELCOME_TEXT);
     openDocument(
       WELCOME_TEXT,
       WELCOME_DOCUMENT_NAME,
       null,
       WELCOME_DOCUMENT_ID,
       [],
-      objects,
     );
   }, [openDocument]);
 
@@ -213,8 +216,9 @@ export function useHintReaderState(): HintReaderState {
         saved.sourceFileName ?? null,
         saved.id,
         saved.knownWords,
-        saved.wordObjects,
         saved.readingProgress ?? 0,
+        saved.languageFrom,
+        saved.language,
       );
     },
     [openDocument],
@@ -256,12 +260,13 @@ export function useHintReaderState(): HintReaderState {
           const savedDoc = savedTexts.find(
             (item) => item.id === parsed.activeDocumentId,
           );
-          if (savedDoc && savedDoc.wordObjects.length > 0) {
+          if (savedDoc) {
             applyDocument(savedDoc);
             return;
           }
         }
 
+        // Legacy: session state still has wordObjects from an old write.
         if (
           Array.isArray(parsed.wordObjects) &&
           parsed.wordObjects.length > 0 &&
@@ -270,6 +275,36 @@ export function useHintReaderState(): HintReaderState {
           const objects = parsed.wordObjects as WordObject[];
           initDocument(objects);
           setInputText(parsed.inputText);
+          setWordObjects(objects);
+          if (typeof parsed.activeDocumentId === "string")
+            setActiveDocumentId(parsed.activeDocumentId);
+          if (typeof parsed.activeDocumentName === "string")
+            setActiveDocumentName(parsed.activeDocumentName);
+          if (typeof parsed.activeSourceFileName === "string")
+            setActiveSourceFileName(parsed.activeSourceFileName);
+          return;
+        }
+
+        // New format: reconstruct word objects from the translation dictionary.
+        if (typeof parsed.inputText === "string" && parsed.inputText.length > 0) {
+          const sessionLangFrom: LanguageFrom =
+            parsed.languageFrom === "auto" ||
+            parsed.languageFrom === "es" ||
+            parsed.languageFrom === "en" ||
+            parsed.languageFrom === "bg"
+              ? (parsed.languageFrom as LanguageFrom)
+              : "auto";
+          const sessionLang: Language =
+            parsed.language === "en" || parsed.language === "uk"
+              ? (parsed.language as Language)
+              : "uk";
+          const objects = buildWordObjectsFromDictionary(
+            parsed.inputText as string,
+            sessionLangFrom,
+            sessionLang,
+          );
+          initDocument(objects);
+          setInputText(parsed.inputText as string);
           setWordObjects(objects);
           if (typeof parsed.activeDocumentId === "string")
             setActiveDocumentId(parsed.activeDocumentId);
@@ -293,7 +328,6 @@ export function useHintReaderState(): HintReaderState {
     try {
       const data = {
         inputText,
-        wordObjects,
         activeDocumentId,
         activeDocumentName,
         activeSourceFileName,
@@ -309,7 +343,6 @@ export function useHintReaderState(): HintReaderState {
     }
   }, [
     inputText,
-    wordObjects,
     activeDocumentId,
     activeDocumentName,
     activeSourceFileName,
@@ -329,7 +362,6 @@ export function useHintReaderState(): HintReaderState {
         activeDocumentName,
         activeSourceFileName,
         inputText,
-        wordObjects,
         knownWords,
         activeReadingProgress,
       );
@@ -340,7 +372,6 @@ export function useHintReaderState(): HintReaderState {
     activeDocumentName,
     activeSourceFileName,
     inputText,
-    wordObjects,
     knownWords,
     activeReadingProgress,
     persistDocument,
@@ -391,10 +422,9 @@ export function useHintReaderState(): HintReaderState {
           file.name,
           existing.id,
           existing.knownWords,
-          existing.inputText === text && existing.wordObjects.length > 0
-            ? existing.wordObjects
-            : undefined,
           existing.readingProgress ?? 0,
+          existing.languageFrom,
+          existing.language,
         );
         return;
       }

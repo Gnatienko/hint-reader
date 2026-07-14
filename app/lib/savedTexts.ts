@@ -6,7 +6,36 @@ export function getSavedTexts(): SavedText[] {
     const raw = window.localStorage.getItem(SAVED_TEXTS_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+
+    // Migration: strip legacy wordObjects blobs to free localStorage quota.
+    let needsWrite = false;
+    const migrated: SavedText[] = parsed.map((item: Record<string, unknown>) => {
+      const hasLegacyBlob = "wordObjects" in item;
+      const missingWordCount = !("wordCount" in item);
+
+      if (!hasLegacyBlob && !missingWordCount) return item as unknown as SavedText;
+
+      needsWrite = true;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { wordObjects: _dropped, ...rest } = item;
+      if (missingWordCount) {
+        const inputText = typeof rest.inputText === "string" ? rest.inputText : "";
+        (rest as Record<string, unknown>).wordCount =
+          inputText.trim().split(/\s+/).filter(Boolean).length;
+      }
+      return rest as unknown as SavedText;
+    });
+
+    if (needsWrite) {
+      try {
+        window.localStorage.setItem(SAVED_TEXTS_KEY, JSON.stringify(migrated));
+      } catch {
+        // ignore quota errors during migration write
+      }
+    }
+
+    return migrated;
   } catch {
     return [];
   }

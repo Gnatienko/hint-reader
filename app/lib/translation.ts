@@ -128,6 +128,24 @@ export function buildWordObjectsFromText(text: string): WordObject[] {
   }));
 }
 
+/**
+ * Like buildWordObjectsFromText but pre-fills translations from the in-memory
+ * dictionary, eliminating the need to persist wordObjects per document.
+ */
+export function buildWordObjectsFromDictionary(
+  text: string,
+  languageFrom: LanguageFrom,
+  language: Language,
+): WordObject[] {
+  ensureTranslationDictionaryLoaded();
+  return tokenize(text).map((word) => ({
+    word,
+    translation:
+      translationDictionary[getDictionaryKey(word, languageFrom, language)] ??
+      "",
+  }));
+}
+
 export function needsTranslation(word: string): boolean {
   return !isPunctuationToken(word) && !isFormattingWhitespaceToken(word);
 }

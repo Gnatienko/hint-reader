@@ -13,7 +13,9 @@ export type SavedText = {
   sourceFileName?: string;
   createdAt: number;
   inputText: string;
-  wordObjects: WordObject[];
+  /** @deprecated No longer stored — reconstructed from the translation dictionary on load. */
+  wordObjects?: WordObject[];
+  wordCount: number;
   knownWords: string[];
   textSize: number;
   translationOpacity: number;

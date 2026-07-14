@@ -1,13 +1,12 @@
 import { useCallback, useState } from "react";
 import { getSavedTexts, saveSavedText } from "../lib/savedTexts";
-import type { Language, LanguageFrom, SavedText, WordObject } from "../types";
+import type { Language, LanguageFrom, SavedText } from "../types";
 
 function buildSavedTextSnapshot(
   id: string,
   name: string,
   sourceFileName: string | undefined,
   inputText: string,
-  wordObjects: WordObject[],
   knownWords: string[],
   textSize: number,
   translationOpacity: number,
@@ -22,7 +21,7 @@ function buildSavedTextSnapshot(
     sourceFileName,
     createdAt: createdAt ?? Date.now(),
     inputText,
-    wordObjects,
+    wordCount: inputText.trim().split(/\s+/).filter(Boolean).length,
     knownWords,
     textSize,
     translationOpacity,
@@ -46,7 +45,6 @@ export function useDocumentPersistence(
       docName: string,
       sourceFileName: string | null,
       text: string,
-      objects: WordObject[],
       words: string[],
       readingProgress: number,
     ) => {
@@ -56,7 +54,6 @@ export function useDocumentPersistence(
         docName,
         sourceFileName ?? undefined,
         text,
-        objects,
         words,
         textSize,
         translationOpacity,

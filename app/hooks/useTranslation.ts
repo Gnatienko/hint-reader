@@ -19,7 +19,7 @@ type UseTranslationOptions = {
   languageFrom: LanguageFrom;
   wordObjectsRef: React.MutableRefObject<WordObject[]>;
   setWordObjects: (words: WordObject[]) => void;
-  onWordsTranslated: (words: WordObject[]) => void;
+  onWordsTranslated: () => void;
 };
 
 export function useTranslation({
@@ -104,7 +104,7 @@ export function useTranslation({
         }
         // Persist once after the entire batch, not after every word.
         if (generation === translateGenerationRef.current) {
-          onWordsTranslatedRef.current(wordObjectsRef.current);
+          onWordsTranslatedRef.current();
         }
       } finally {
         if (
@@ -145,7 +145,7 @@ export function useTranslation({
     );
     wordObjectsRef.current = cleared;
     setWordObjectsRef.current(cleared);
-    onWordsTranslatedRef.current(cleared);
+    onWordsTranslatedRef.current();
 
     const pages = lastPagesRef.current;
     if (pages.length === 0) return;
