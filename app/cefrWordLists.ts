@@ -12,6 +12,8 @@ const baseLists: Record<CefrLevel, string[]> = {
 
 const fileLists = EFLLexCefr as Partial<Record<CefrLevel, string[]>>;
 
+const cache = new Map<CefrLevel, string[]>();
+
 function buildWordList(level: CefrLevel): string[] {
   const combined = [...(baseLists[level] || []), ...(fileLists[level] || [])];
   const seen = new Set<string>();
@@ -28,5 +30,6 @@ function buildWordList(level: CefrLevel): string[] {
 }
 
 export function getWordsForLevel(level: CefrLevel): string[] {
-  return buildWordList(level);
+  if (!cache.has(level)) cache.set(level, buildWordList(level));
+  return cache.get(level)!;
 }

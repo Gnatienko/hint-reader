@@ -92,6 +92,7 @@ export default function Home() {
             {hasText ? (
               <PaginatedReadingArea
                 wordObjects={wordObjects}
+                documentId={activeDocumentId ?? ""}
                 textSize={textSize}
                 opacity={opacity}
                 knownWords={knownWords}

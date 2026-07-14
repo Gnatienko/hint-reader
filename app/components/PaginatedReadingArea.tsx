@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "antd";
 import { LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { WordPair } from "./WordPair";
@@ -13,6 +13,7 @@ import type { WordObject } from "../types";
 
 type Props = {
   wordObjects: WordObject[];
+  documentId: string;
   textSize: number;
   opacity: number;
   knownWords: string[];
@@ -25,6 +26,7 @@ type Props = {
 
 export function PaginatedReadingArea({
   wordObjects,
+  documentId,
   textSize,
   opacity,
   knownWords,
@@ -46,11 +48,6 @@ export function PaginatedReadingArea({
     savedProgressRef.current = savedProgressPercent;
   }, [savedProgressPercent]);
 
-  const documentKey = useMemo(
-    () => wordObjects.map((item) => item?.word ?? "").join("\u0000"),
-    [wordObjects],
-  );
-
   const computePages = useCallback(() => {
     const measureEl = measureRef.current;
     const viewportEl = viewportRef.current;
@@ -59,7 +56,7 @@ export function PaginatedReadingArea({
     const children = Array.from(measureEl.children) as HTMLElement[];
     if (children.length === 0) {
       setPages([]);
-      setPagesDocumentKey(documentKey);
+      setPagesDocumentKey(documentId);
       return;
     }
 
@@ -158,14 +155,14 @@ export function PaginatedReadingArea({
     }
 
     setPages(newPages);
-    setPagesDocumentKey(documentKey);
-  }, [documentKey]);
+    setPagesDocumentKey(documentId);
+  }, [documentId]);
 
   useLayoutEffect(() => {
     // Measure layout before paint; setState here is intentional.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- DOM measurement pagination
     computePages();
-  }, [documentKey, textSize, opacity, knownWords, computePages]);
+  }, [documentId, textSize, opacity, knownWords, computePages]);
 
   useEffect(() => {
     const viewportEl = viewportRef.current;
@@ -178,8 +175,8 @@ export function PaginatedReadingArea({
     return () => observer.disconnect();
   }, [computePages]);
 
-  const pagesAreCurrent = pagesDocumentKey === documentKey;
-  const pageRestoreKey = `${documentKey}:${pages.length}:${textSize}`;
+  const pagesAreCurrent = pagesDocumentKey === documentId;
+  const pageRestoreKey = `${documentId}:${pages.length}:${textSize}`;
 
   useEffect(() => {
     if (!pagesAreCurrent || pages.length === 0) return;
