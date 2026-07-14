@@ -77,7 +77,7 @@ export function WordPair({
     onToggleKnown(item.word);
   };
 
-  const hintLineHeight = textSize * 0.55 * 1.1;
+  const hintLineHeight = textSize * 0.55 * 0.5;
 
   return (
     <div
@@ -94,7 +94,7 @@ export function WordPair({
           style={{
             fontSize: textSize * 0.55,
             opacity: showTranslation ? opacity : 0,
-            lineHeight: 1.1,
+            lineHeight: 1,
             ...(showTranslation ? maskStyle : {}),
           }}
           aria-hidden={!showTranslation}
@@ -105,7 +105,7 @@ export function WordPair({
       <span
         ref={originalRef}
         style={{
-          lineHeight: 1.2,
+          lineHeight: 1.1,
           cursor: isClickable ? "pointer" : "default",
         }}
         onClick={handleClick}
