@@ -76,6 +76,36 @@ export function PaginatedReadingArea({
     const fitSlack =
       (parseFloat(getComputedStyle(measureEl).rowGap) || 3) + 4;
 
+    // Formatting tokens (line / paragraph) render as two sibling elements
+    // in the measure area: a flex-row-breaking span followed by an indent
+    // span.  This means measureEl.children can have more entries than
+    // wordObjects, so children[i] !== wordObjects[i] whenever a format
+    // token appears.  Build a mapping so every child knows its word-object
+    // index and whether it is the secondary indent span (which must not be
+    // pushed as a separate page entry — the reading area already renders
+    // both spans when given the format token's word-object index).
+    const childWordObjIndex: number[] = [];
+    const childIsSecondary: boolean[] = [];
+    let woi = 0;
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
+      const prevChild = i > 0 ? children[i - 1] : null;
+      const isIndent = child.classList.contains("word-format--indent");
+      const prevIsBreaker =
+        prevChild !== null &&
+        (prevChild.classList.contains("word-format--line") ||
+          prevChild.classList.contains("word-format--paragraph"));
+      if (isIndent && prevIsBreaker) {
+        // Secondary span (indent following a line/paragraph break) —
+        // belongs to the same word object as the preceding child.
+        childWordObjIndex.push(woi - 1);
+        childIsSecondary.push(true);
+      } else {
+        childWordObjIndex.push(woi++);
+        childIsSecondary.push(false);
+      }
+    }
+
     // Each page renders only a word subset that reflows from the top, so
     // pagination must measure those subsets — not global positions in the
     // full-document layout (line breaks differ after a page split).
@@ -103,13 +133,17 @@ export function PaginatedReadingArea({
           break;
         }
 
-        page.push(index);
+        if (!childIsSecondary[index]) {
+          page.push(childWordObjIndex[index]);
+        }
         index++;
       }
 
       if (page.length === 0 && index < children.length) {
         children[index].style.display = "";
-        page.push(index);
+        if (!childIsSecondary[index]) {
+          page.push(childWordObjIndex[index]);
+        }
         index++;
       }
 

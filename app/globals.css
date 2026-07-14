@@ -134,7 +134,8 @@ body {
   align-content: flex-start;
   align-items: flex-end;
   gap: 3px var(--word-gap-x);
-  padding: 8px 4px;
+  padding: 8px 4px 32px;
+  box-sizing: border-box;
   font-family: Georgia, "Times New Roman", serif;
   line-height: 1.65;
 }
