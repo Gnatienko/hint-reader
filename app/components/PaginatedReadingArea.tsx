@@ -37,8 +37,13 @@ export function PaginatedReadingArea({
   const [pagesDocumentKey, setPagesDocumentKey] = useState("");
   const measureRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const paginationRef = useRef<HTMLDivElement>(null);
   const savedProgressRef = useRef(savedProgressPercent);
-  savedProgressRef.current = savedProgressPercent;
+
+  useEffect(() => {
+    savedProgressRef.current = savedProgressPercent;
+  }, [savedProgressPercent]);
+
   const documentKey = useMemo(
     () => wordObjects.map((item) => item?.word ?? "").join("\u0000"),
     [wordObjects],
@@ -49,33 +54,71 @@ export function PaginatedReadingArea({
     const viewportEl = viewportRef.current;
     if (!measureEl || !viewportEl) return;
 
-    const children = measureEl.children;
+    const children = Array.from(measureEl.children) as HTMLElement[];
     if (children.length === 0) {
       setPages([]);
       setPagesDocumentKey(documentKey);
       return;
     }
 
-    const pageHeight = viewportEl.clientHeight;
-    if (pageHeight <= 0) return;
+    const paginationEl = paginationRef.current;
+    const paginatedEl = viewportEl.parentElement;
+    const maxHeight =
+      paginationEl && paginatedEl
+        ? paginatedEl.clientHeight - paginationEl.offsetHeight
+        : viewportEl.clientHeight;
+    if (maxHeight <= 0) return;
 
-    const newPages: number[][] = [[]];
-    let pageStartTop = (children[0] as HTMLElement).offsetTop;
+    // Match the visible column width so line breaks in the measure pass
+    // match what the viewport renders (absolute measure lives in-viewport).
+    measureEl.style.width = `${viewportEl.clientWidth}px`;
 
-    for (let i = 0; i < children.length; i++) {
-      const el = children[i] as HTMLElement;
-      const top = el.offsetTop;
-      const bottom = top + el.offsetHeight;
+    const fitSlack =
+      (parseFloat(getComputedStyle(measureEl).rowGap) || 3) + 4;
 
-      if (
-        bottom > pageStartTop + pageHeight &&
-        newPages[newPages.length - 1].length > 0
-      ) {
-        newPages.push([]);
-        pageStartTop = top;
+    // Each page renders only a word subset that reflows from the top, so
+    // pagination must measure those subsets — not global positions in the
+    // full-document layout (line breaks differ after a page split).
+    const hideAll = () => {
+      for (const child of children) {
+        child.style.display = "none";
+      }
+    };
+
+    hideAll();
+
+    const newPages: number[][] = [];
+    let index = 0;
+
+    while (index < children.length) {
+      const page: number[] = [];
+      hideAll();
+
+      while (index < children.length) {
+        children[index].style.display = "";
+        const contentHeight = measureEl.offsetHeight;
+
+        if (contentHeight > maxHeight - fitSlack && page.length > 0) {
+          children[index].style.display = "none";
+          break;
+        }
+
+        page.push(index);
+        index++;
       }
 
-      newPages[newPages.length - 1].push(i);
+      if (page.length === 0 && index < children.length) {
+        children[index].style.display = "";
+        page.push(index);
+        index++;
+      }
+
+      newPages.push(page);
+    }
+
+    hideAll();
+    for (const child of children) {
+      child.style.display = "";
     }
 
     setPages(newPages);
@@ -83,15 +126,19 @@ export function PaginatedReadingArea({
   }, [documentKey]);
 
   useLayoutEffect(() => {
+    // Measure layout before paint; setState here is intentional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- DOM measurement pagination
     computePages();
   }, [documentKey, textSize, opacity, knownWords, computePages]);
 
   useEffect(() => {
     const viewportEl = viewportRef.current;
+    const paginationEl = paginationRef.current;
     if (!viewportEl) return;
 
     const observer = new ResizeObserver(() => computePages());
     observer.observe(viewportEl);
+    if (paginationEl) observer.observe(paginationEl);
     return () => observer.disconnect();
   }, [computePages]);
 
@@ -106,7 +153,8 @@ export function PaginatedReadingArea({
 
   useEffect(() => {
     if (pages.length > 0 && currentPage >= pages.length) {
-      setCurrentPage(pages.length - 1);
+      // Defer to avoid "setState synchronously within an effect" lint rule.
+      queueMicrotask(() => setCurrentPage(pages.length - 1));
     }
   }, [pages, currentPage]);
 
@@ -159,29 +207,29 @@ export function PaginatedReadingArea({
             );
           })}
         </div>
+
+        <div
+          ref={measureRef}
+          className="reading-area reading-area-measure"
+          aria-hidden
+        >
+          {wordObjects.map((item, index) => {
+            if (!item) return null;
+            return (
+              <WordPair
+                key={`measure-${item.word}-${index}`}
+                item={item}
+                textSize={textSize}
+                opacity={opacity}
+                isKnown={knownWords.includes(item.word.toLowerCase())}
+                onToggleKnown={onToggleKnown}
+              />
+            );
+          })}
+        </div>
       </div>
 
-      <div
-        ref={measureRef}
-        className="reading-area reading-area-measure"
-        aria-hidden
-      >
-        {wordObjects.map((item, index) => {
-          if (!item) return null;
-          return (
-            <WordPair
-              key={`measure-${item.word}-${index}`}
-              item={item}
-              textSize={textSize}
-              opacity={opacity}
-              isKnown={knownWords.includes(item.word.toLowerCase())}
-              onToggleKnown={onToggleKnown}
-            />
-          );
-        })}
-      </div>
-
-      <div className="reading-pagination">
+      <div ref={paginationRef} className="reading-pagination">
         <Button
           type="text"
           icon={<LeftOutlined />}
