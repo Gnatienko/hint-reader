@@ -1,23 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CefrLevel } from "../cefrWordLists";
-import { getWordsForLevel } from "../cefrWordLists";
 import {
   WELCOME_DOCUMENT_ID,
   WELCOME_DOCUMENT_NAME,
   WELCOME_TEXT,
 } from "../lib/defaultText";
 import { calculateReadingProgress } from "../lib/readingProgress";
-import { getSavedTexts, saveSavedText, deleteSavedText } from "../lib/savedTexts";
+import { getSavedTexts, deleteSavedText } from "../lib/savedTexts";
 import { getDisplayNameFromFileName } from "../lib/bookFormats";
 import { extractTextFromBookFile } from "../lib/extractBookText";
-import {
-  buildWordObjectsFromText,
-  needsTranslation,
-  translateWord,
-} from "../lib/translation";
+import { buildWordObjectsFromText } from "../lib/translation";
+import type { CefrLevel } from "../cefrWordLists";
 import type { Language, LanguageFrom, SavedText, WordObject } from "../types";
-
-const PREFETCH_PAGES_AHEAD = 2;
+import { useKnownWords } from "./useKnownWords";
+import { useDocumentPersistence } from "./useDocumentPersistence";
+import { useTranslation, PREFETCH_PAGES_AHEAD } from "./useTranslation";
 
 type HintReaderState = {
   wordObjects: WordObject[];
@@ -50,73 +46,20 @@ type HintReaderState = {
   activeReadingProgress: number;
 };
 
-function syncTranslatedIndices(wordObjects: WordObject[]): Set<number> {
-  const indices = new Set<number>();
-  wordObjects.forEach((item, index) => {
-    if (needsTranslation(item.word) && item.translation !== "") {
-      indices.add(index);
-    }
-  });
-  return indices;
-}
-
-function buildSavedTextSnapshot(
-  id: string,
-  name: string,
-  sourceFileName: string | undefined,
-  inputText: string,
-  wordObjects: WordObject[],
-  knownWords: string[],
-  textSize: number,
-  translationOpacity: number,
-  language: Language,
-  languageFrom: LanguageFrom,
-  readingProgress: number,
-  createdAt?: number,
-): SavedText {
-  return {
-    id,
-    name,
-    sourceFileName,
-    createdAt: createdAt ?? Date.now(),
-    inputText,
-    wordObjects,
-    knownWords,
-    textSize,
-    translationOpacity,
-    language,
-    languageFrom,
-    readingProgress,
-  };
-}
-
 export function useHintReaderState(): HintReaderState {
   const [inputText, setInputText] = useState("");
   const [wordObjects, setWordObjects] = useState<WordObject[]>([]);
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
-  const [activeDocumentName, setActiveDocumentName] = useState<string | null>(
-    null,
-  );
-  const [activeSourceFileName, setActiveSourceFileName] = useState<
-    string | null
-  >(null);
+  const [activeDocumentName, setActiveDocumentName] = useState<string | null>(null);
+  const [activeSourceFileName, setActiveSourceFileName] = useState<string | null>(null);
   const [textSize, setTextSize] = useState(24);
   const [translationOpacity, setTranslationOpacity] = useState(18);
   const [language, setLanguage] = useState<Language>("uk");
   const [languageFrom, setLanguageFrom] = useState<LanguageFrom>("auto");
-  const [translating, setTranslating] = useState(false);
-  const [knownWords, setKnownWords] = useState<string[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [savedTextsList, setSavedTextsList] = useState<SavedText[]>([]);
   const [activeReadingProgress, setActiveReadingProgress] = useState(0);
 
-  const translatedIndicesRef = useRef(new Set<number>());
-  const inFlightIndicesRef = useRef(new Set<number>());
   const wordObjectsRef = useRef(wordObjects);
-  const lastPagesRef = useRef<number[][]>([]);
-  const lastCurrentPageRef = useRef(0);
-  const translateGenerationRef = useRef(0);
-  const skipLanguageResetRef = useRef(true);
   const initializedRef = useRef(false);
   const persistContextRef = useRef({
     activeDocumentId: null as string | null,
@@ -131,6 +74,26 @@ export function useHintReaderState(): HintReaderState {
     wordObjectsRef.current = wordObjects;
   }, [wordObjects]);
 
+  // ── Sub-hooks ──────────────────────────────────────────────────────────────
+
+  const {
+    knownWords,
+    setKnownWords,
+    toggleKnownWord,
+    removeKnownWord,
+    markAllWordsByLevel,
+    unmarkAllWordsByLevel,
+    areAllLevelWordsKnown,
+  } = useKnownWords();
+
+  const {
+    savedTextsList,
+    persistDocument,
+    refreshSavedTextsList,
+    removeSavedFromList,
+  } = useDocumentPersistence(textSize, translationOpacity, language, languageFrom);
+
+  // Keep the persist context ref up to date so persistNow never uses stale values.
   useEffect(() => {
     persistContextRef.current = {
       activeDocumentId,
@@ -149,36 +112,6 @@ export function useHintReaderState(): HintReaderState {
     activeReadingProgress,
   ]);
 
-  const persistDocument = useCallback(
-    (
-      docId: string,
-      docName: string,
-      sourceFileName: string | null,
-      text: string,
-      objects: WordObject[],
-      words: string[],
-      readingProgress: number,
-    ) => {
-      const existing = getSavedTexts().find((item) => item.id === docId);
-      const snapshot = buildSavedTextSnapshot(
-        docId,
-        docName,
-        sourceFileName ?? undefined,
-        text,
-        objects,
-        words,
-        textSize,
-        translationOpacity,
-        language,
-        languageFrom,
-        readingProgress,
-        existing?.createdAt,
-      );
-      saveSavedText(snapshot);
-    },
-    [textSize, translationOpacity, language, languageFrom],
-  );
-
   const persistNow = useCallback(
     (objects?: WordObject[]) => {
       const ctx = persistContextRef.current;
@@ -196,6 +129,22 @@ export function useHintReaderState(): HintReaderState {
     [persistDocument],
   );
 
+  const {
+    translating,
+    lastPagesRef,
+    lastCurrentPageRef,
+    ensureTranslatedForPages,
+    initDocument,
+  } = useTranslation({
+    language,
+    languageFrom,
+    wordObjectsRef,
+    setWordObjects,
+    onWordsTranslated: persistNow,
+  });
+
+  // ── Document management ────────────────────────────────────────────────────
+
   const openDocument = useCallback(
     (
       text: string,
@@ -210,9 +159,7 @@ export function useHintReaderState(): HintReaderState {
       const progress = readingProgress ?? existing?.readingProgress ?? 0;
 
       const tokenObjects = objects ?? buildWordObjectsFromText(text);
-      translatedIndicesRef.current = syncTranslatedIndices(tokenObjects);
-      inFlightIndicesRef.current.clear();
-      translateGenerationRef.current++;
+      initDocument(tokenObjects);
 
       setInputText(text);
       setWordObjects(tokenObjects);
@@ -222,17 +169,9 @@ export function useHintReaderState(): HintReaderState {
       setActiveSourceFileName(sourceFileName);
       setActiveReadingProgress(progress);
 
-      persistDocument(
-        docId,
-        name,
-        sourceFileName,
-        text,
-        tokenObjects,
-        words,
-        progress,
-      );
+      persistDocument(docId, name, sourceFileName, text, tokenObjects, words, progress);
     },
-    [persistDocument],
+    [initDocument, persistDocument, setKnownWords],
   );
 
   const loadWelcomeDocument = useCallback(() => {
@@ -260,99 +199,6 @@ export function useHintReaderState(): HintReaderState {
     );
   }, [openDocument]);
 
-  const ensureTranslatedForPages = useCallback(
-    async (
-      pages: number[][],
-      fromPage: number,
-      toPage: number,
-      langFrom: LanguageFrom,
-      lang: Language,
-    ) => {
-      if (pages.length === 0 || wordObjectsRef.current.length === 0) return;
-
-      const generation = translateGenerationRef.current;
-      const startPage = Math.max(0, fromPage);
-      const endPage = Math.min(toPage, pages.length - 1);
-
-      const pendingIndices: number[] = [];
-      const currentObjects = wordObjectsRef.current;
-      for (let page = startPage; page <= endPage; page++) {
-        for (const index of pages[page]) {
-          const item = currentObjects[index];
-          if (!item || !needsTranslation(item.word)) continue;
-          if (translatedIndicesRef.current.has(index)) continue;
-          if (inFlightIndicesRef.current.has(index)) continue;
-          if (!pendingIndices.includes(index)) {
-            pendingIndices.push(index);
-          }
-        }
-      }
-
-      if (pendingIndices.length === 0) return;
-
-      for (const index of pendingIndices) {
-        inFlightIndicesRef.current.add(index);
-      }
-      setTranslating(true);
-
-      try {
-        for (const index of pendingIndices) {
-          if (generation !== translateGenerationRef.current) return;
-
-          const item = wordObjectsRef.current[index];
-          if (!item || !needsTranslation(item.word)) {
-            inFlightIndicesRef.current.delete(index);
-            continue;
-          }
-
-          const translation = await translateWord(item.word, langFrom, lang);
-          if (generation !== translateGenerationRef.current) return;
-
-          translatedIndicesRef.current.add(index);
-          inFlightIndicesRef.current.delete(index);
-
-          const next = [...wordObjectsRef.current];
-          if (!next[index]) continue;
-          next[index] = { ...next[index], translation };
-          wordObjectsRef.current = next;
-          setWordObjects(next);
-          persistNow(next);
-        }
-      } finally {
-        if (
-          generation === translateGenerationRef.current &&
-          inFlightIndicesRef.current.size === 0
-        ) {
-          setTranslating(false);
-        }
-      }
-    },
-    [persistNow],
-  );
-
-  const handlePageChange = useCallback(
-    (currentPage: number, pages: number[][]) => {
-      lastPagesRef.current = pages;
-      lastCurrentPageRef.current = currentPage;
-
-      const progress = calculateReadingProgress(currentPage, pages.length);
-      setActiveReadingProgress(progress);
-
-      const endPage = Math.min(
-        currentPage + PREFETCH_PAGES_AHEAD,
-        pages.length - 1,
-      );
-      void ensureTranslatedForPages(
-        pages,
-        currentPage,
-        endPage,
-        languageFrom,
-        language,
-      );
-    },
-    [ensureTranslatedForPages, languageFrom, language],
-  );
-
   const applyDocument = useCallback(
     (saved: SavedText) => {
       setTextSize(saved.textSize);
@@ -372,6 +218,8 @@ export function useHintReaderState(): HintReaderState {
     [openDocument],
   );
 
+  // ── Initialisation ─────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (initializedRef.current || typeof window === "undefined") return;
     initializedRef.current = true;
@@ -388,15 +236,11 @@ export function useHintReaderState(): HintReaderState {
             .map((w: string) => w.toLowerCase());
           setKnownWords(Array.from(new Set(normalized)));
         }
-        if (typeof parsed.textSize === "number") {
-          setTextSize(parsed.textSize);
-        }
-        if (typeof parsed.translationOpacity === "number") {
+        if (typeof parsed.textSize === "number") setTextSize(parsed.textSize);
+        if (typeof parsed.translationOpacity === "number")
           setTranslationOpacity(parsed.translationOpacity);
-        }
-        if (parsed.language === "en" || parsed.language === "uk") {
+        if (parsed.language === "en" || parsed.language === "uk")
           setLanguage(parsed.language);
-        }
         if (
           parsed.languageFrom === "auto" ||
           parsed.languageFrom === "es" ||
@@ -422,18 +266,15 @@ export function useHintReaderState(): HintReaderState {
           typeof parsed.inputText === "string"
         ) {
           const objects = parsed.wordObjects as WordObject[];
+          initDocument(objects);
           setInputText(parsed.inputText);
           setWordObjects(objects);
-          if (typeof parsed.activeDocumentId === "string") {
+          if (typeof parsed.activeDocumentId === "string")
             setActiveDocumentId(parsed.activeDocumentId);
-          }
-          if (typeof parsed.activeDocumentName === "string") {
+          if (typeof parsed.activeDocumentName === "string")
             setActiveDocumentName(parsed.activeDocumentName);
-          }
-          if (typeof parsed.activeSourceFileName === "string") {
+          if (typeof parsed.activeSourceFileName === "string")
             setActiveSourceFileName(parsed.activeSourceFileName);
-          }
-          translatedIndicesRef.current = syncTranslatedIndices(objects);
           return;
         }
       }
@@ -442,8 +283,9 @@ export function useHintReaderState(): HintReaderState {
     } catch {
       loadWelcomeDocument();
     }
-  }, [applyDocument, loadWelcomeDocument]);
+  }, [applyDocument, initDocument, loadWelcomeDocument, setKnownWords]);
 
+  // Persist lightweight session snapshot to localStorage on every relevant change.
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -476,6 +318,7 @@ export function useHintReaderState(): HintReaderState {
     languageFrom,
   ]);
 
+  // Debounced full persist to the saved-texts store.
   useEffect(() => {
     if (!activeDocumentId || !activeDocumentName) return;
     const timer = window.setTimeout(() => {
@@ -501,40 +344,30 @@ export function useHintReaderState(): HintReaderState {
     persistDocument,
   ]);
 
-  useEffect(() => {
-    if (skipLanguageResetRef.current) {
-      skipLanguageResetRef.current = false;
-      return;
-    }
+  // ── Handlers ───────────────────────────────────────────────────────────────
 
-    translateGenerationRef.current++;
-    translatedIndicesRef.current.clear();
-    inFlightIndicesRef.current.clear();
+  const handlePageChange = useCallback(
+    (currentPage: number, pages: number[][]) => {
+      lastPagesRef.current = pages;
+      lastCurrentPageRef.current = currentPage;
 
-    const cleared = wordObjectsRef.current.map((item) =>
-      needsTranslation(item.word) ? { ...item, translation: "" } : item,
-    );
-    wordObjectsRef.current = cleared;
-    setWordObjects(cleared);
-    persistNow(cleared);
+      const progress = calculateReadingProgress(currentPage, pages.length);
+      setActiveReadingProgress(progress);
 
-    const pages = lastPagesRef.current;
-    if (pages.length === 0) return;
-
-    const currentPage = lastCurrentPageRef.current;
-    const endPage = Math.min(
-      currentPage + PREFETCH_PAGES_AHEAD,
-      pages.length - 1,
-    );
-
-    void ensureTranslatedForPages(
-      pages,
-      currentPage,
-      endPage,
-      languageFrom,
-      language,
-    );
-  }, [language, languageFrom, ensureTranslatedForPages, persistNow]);
+      const endPage = Math.min(
+        currentPage + PREFETCH_PAGES_AHEAD,
+        pages.length - 1,
+      );
+      void ensureTranslatedForPages(
+        pages,
+        currentPage,
+        endPage,
+        languageFrom,
+        language,
+      );
+    },
+    [ensureTranslatedForPages, lastPagesRef, lastCurrentPageRef, languageFrom, language],
+  );
 
   const handleOpenTextFile = useCallback(
     async (file: File) => {
@@ -584,63 +417,19 @@ export function useHintReaderState(): HintReaderState {
     [openDocument],
   );
 
-  const toggleKnownWord = (word: string) => {
-    const key = word.toLowerCase();
-    setKnownWords((prev) =>
-      prev.includes(key) ? prev.filter((w) => w !== key) : [...prev, key],
-    );
-  };
-
-  const removeKnownWord = (word: string) => {
-    setKnownWords((prev) => prev.filter((w) => w !== word));
-  };
-
-  const markAllWordsByLevel = (level: CefrLevel) => {
-    const levelWords = getWordsForLevel(level);
-    if (!levelWords.length) return;
-    setKnownWords((prev) => {
-      const existing = new Set(prev);
-      const updated = [...prev];
-      for (const w of levelWords) {
-        const key = w.toLowerCase();
-        if (!existing.has(key)) {
-          updated.push(key);
-          existing.add(key);
-        }
-      }
-      return updated;
-    });
-  };
-
-  const unmarkAllWordsByLevel = (level: CefrLevel) => {
-    const levelWords = getWordsForLevel(level);
-    if (!levelWords.length) return;
-    const levelSet = new Set(levelWords.map((w) => w.toLowerCase()));
-    setKnownWords((prev) => prev.filter((w) => !levelSet.has(w)));
-  };
-
-  const areAllLevelWordsKnown = (level: CefrLevel): boolean => {
-    const levelWords = getWordsForLevel(level);
-    if (!levelWords.length) return false;
-    const knownSet = new Set(knownWords);
-    return levelWords.every((w) => knownSet.has(w.toLowerCase()));
-  };
-
-  const refreshSavedTextsList = () => {
-    setSavedTextsList(getSavedTexts());
-  };
-
   const handleLoadSaved = (saved: SavedText) => {
     applyDocument(saved);
   };
 
   const handleDeleteSaved = (id: string) => {
     deleteSavedText(id);
-    setSavedTextsList((prev) => prev.filter((s) => s.id !== id));
+    removeSavedFromList(id);
     if (activeDocumentId === id) {
       loadWelcomeDocument();
     }
   };
+
+  // ── Public API ─────────────────────────────────────────────────────────────
 
   return {
     wordObjects,
