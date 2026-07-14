@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import type { CefrLevel } from "../cefrWordLists";
 import { getWordsForLevel } from "../cefrWordLists";
 
@@ -12,7 +12,7 @@ export function useKnownWords() {
     setKnownWordsState(words);
   };
 
-  const toggleKnownWord = (word: string) => {
+  const toggleKnownWord = useCallback((word: string) => {
     const key = word.toLowerCase();
     if (knownWordsSetRef.current.has(key)) {
       knownWordsSetRef.current.delete(key);
@@ -21,7 +21,7 @@ export function useKnownWords() {
       knownWordsSetRef.current.add(key);
       setKnownWordsState((prev) => [...prev, key]);
     }
-  };
+  }, []);
 
   const removeKnownWord = (word: string) => {
     knownWordsSetRef.current.delete(word);

@@ -10,6 +10,47 @@ import {
   pageFromProgress,
 } from "../lib/readingProgress";
 import type { WordObject } from "../types";
+import React from "react";
+
+type MeasureAreaProps = {
+  measureRef: React.RefObject<HTMLDivElement | null>;
+  wordObjects: WordObject[];
+  textSize: number;
+  opacity: number;
+  knownWordsSet: { current: Set<string> };
+  onToggleKnown: (word: string) => void;
+  measureVersion: number; // only used to bust the memo cache
+};
+
+// Memoized so it only re-renders when wordObjects/textSize/opacity change or
+// measureVersion increments (debounced after known-word toggles). This prevents
+// re-rendering every word in the book on each single word click.
+const MeasureArea = React.memo(function MeasureArea({
+  measureRef,
+  wordObjects,
+  textSize,
+  opacity,
+  knownWordsSet,
+  onToggleKnown,
+}: MeasureAreaProps) {
+  return (
+    <div ref={measureRef} className="reading-area reading-area-measure" aria-hidden>
+      {wordObjects.map((item, index) => {
+        if (!item) return null;
+        return (
+          <WordPair
+            key={`measure-${item.word}-${index}`}
+            item={item}
+            textSize={textSize}
+            opacity={opacity}
+            isKnown={knownWordsSet.current.has(item.word.toLowerCase())}
+            onToggleKnown={onToggleKnown}
+          />
+        );
+      })}
+    </div>
+  );
+});
 
 type Props = {
   wordObjects: WordObject[];
@@ -39,6 +80,7 @@ export function PaginatedReadingArea({
   const [currentPage, setCurrentPage] = useState(0);
   const [pages, setPages] = useState<number[][]>([]);
   const [pagesDocumentKey, setPagesDocumentKey] = useState("");
+  const [measureVersion, setMeasureVersion] = useState(0);
   const measureRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const paginationRef = useRef<HTMLDivElement>(null);
@@ -162,7 +204,19 @@ export function PaginatedReadingArea({
     // Measure layout before paint; setState here is intentional.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- DOM measurement pagination
     computePages();
-  }, [documentId, textSize, opacity, knownWords, computePages]);
+  }, [documentId, textSize, opacity, computePages]);
+
+  // Debounce repagination when known-word status changes — avoids running the
+  // expensive DOM-measurement loop on every single word click.
+  useEffect(() => {
+    const id = setTimeout(() => setMeasureVersion((v) => v + 1), 400);
+    return () => clearTimeout(id);
+  }, [knownWords]);
+
+  useLayoutEffect(() => {
+    if (measureVersion > 0) computePages();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- DOM measurement pagination
+  }, [measureVersion, computePages]);
 
   useEffect(() => {
     const viewportEl = viewportRef.current;
@@ -241,25 +295,15 @@ export function PaginatedReadingArea({
           })}
         </div>
 
-        <div
-          ref={measureRef}
-          className="reading-area reading-area-measure"
-          aria-hidden
-        >
-          {wordObjects.map((item, index) => {
-            if (!item) return null;
-            return (
-              <WordPair
-                key={`measure-${item.word}-${index}`}
-                item={item}
-                textSize={textSize}
-                opacity={opacity}
-                isKnown={knownWordsSet.current.has(item.word.toLowerCase())}
-                onToggleKnown={onToggleKnown}
-              />
-            );
-          })}
-        </div>
+        <MeasureArea
+          measureRef={measureRef}
+          wordObjects={wordObjects}
+          textSize={textSize}
+          opacity={opacity}
+          knownWordsSet={knownWordsSet}
+          onToggleKnown={onToggleKnown}
+          measureVersion={measureVersion}
+        />
       </div>
 
       <div ref={paginationRef} className="reading-pagination">
