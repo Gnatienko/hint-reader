@@ -30,6 +30,7 @@ export default function Home() {
     setLanguageFrom,
     translating,
     knownWords,
+    knownWordsSet,
     toggleKnownWord,
     removeKnownWord,
     markAllWordsByLevel,
@@ -94,6 +95,7 @@ export default function Home() {
                 textSize={textSize}
                 opacity={opacity}
                 knownWords={knownWords}
+                knownWordsSet={knownWordsSet}
                 translating={translating}
                 savedProgressPercent={activeReadingProgress}
                 onToggleKnown={toggleKnownWord}

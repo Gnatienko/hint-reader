@@ -70,8 +70,10 @@ export function WordPair({
     );
   }
 
+  const isClickable = showTranslation || isKnown;
+
   const handleClick = () => {
-    if (!showTranslation) return;
+    if (!isClickable) return;
     onToggleKnown(item.word);
   };
 
@@ -104,7 +106,7 @@ export function WordPair({
         ref={originalRef}
         style={{
           lineHeight: 1.2,
-          cursor: showTranslation ? "pointer" : "default",
+          cursor: isClickable ? "pointer" : "default",
         }}
         onClick={handleClick}
       >

@@ -29,6 +29,7 @@ type HintReaderState = {
   setLanguageFrom: (value: LanguageFrom) => void;
   translating: boolean;
   knownWords: string[];
+  knownWordsSet: { current: Set<string> };
   toggleKnownWord: (word: string) => void;
   removeKnownWord: (word: string) => void;
   markAllWordsByLevel: (level: CefrLevel) => void;
@@ -78,6 +79,7 @@ export function useHintReaderState(): HintReaderState {
 
   const {
     knownWords,
+    knownWordsSet,
     setKnownWords,
     toggleKnownWord,
     removeKnownWord,
@@ -445,6 +447,7 @@ export function useHintReaderState(): HintReaderState {
     setLanguageFrom,
     translating,
     knownWords,
+    knownWordsSet,
     toggleKnownWord,
     removeKnownWord,
     markAllWordsByLevel,

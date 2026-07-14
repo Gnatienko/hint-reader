@@ -16,6 +16,7 @@ type Props = {
   textSize: number;
   opacity: number;
   knownWords: string[];
+  knownWordsSet: { current: Set<string> };
   translating?: boolean;
   savedProgressPercent?: number;
   onToggleKnown: (word: string) => void;
@@ -27,6 +28,7 @@ export function PaginatedReadingArea({
   textSize,
   opacity,
   knownWords,
+  knownWordsSet,
   translating = false,
   savedProgressPercent = 0,
   onToggleKnown,
@@ -235,7 +237,7 @@ export function PaginatedReadingArea({
                 item={item}
                 textSize={textSize}
                 opacity={opacity}
-                isKnown={knownWords.includes(item.word.toLowerCase())}
+                isKnown={knownWordsSet.current.has(item.word.toLowerCase())}
                 onToggleKnown={onToggleKnown}
               />
             );
@@ -255,7 +257,7 @@ export function PaginatedReadingArea({
                 item={item}
                 textSize={textSize}
                 opacity={opacity}
-                isKnown={knownWords.includes(item.word.toLowerCase())}
+                isKnown={knownWordsSet.current.has(item.word.toLowerCase())}
                 onToggleKnown={onToggleKnown}
               />
             );
