@@ -101,7 +101,10 @@ export function useTranslation({
           next[index] = { ...next[index], translation };
           wordObjectsRef.current = next;
           setWordObjectsRef.current(next);
-          onWordsTranslatedRef.current(next);
+        }
+        // Persist once after the entire batch, not after every word.
+        if (generation === translateGenerationRef.current) {
+          onWordsTranslatedRef.current(wordObjectsRef.current);
         }
       } finally {
         if (
