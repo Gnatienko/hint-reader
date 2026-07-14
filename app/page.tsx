@@ -48,7 +48,7 @@ export default function Home() {
     activeReadingProgress,
   } = useHintReaderState();
 
-  const opacity = Math.max(1, Math.min(30, translationOpacity)) / 100;
+  const opacity = translationOpacity / 100;
   const hasText = wordObjects.length > 0;
   const isWelcomeDocument = activeDocumentId === WELCOME_DOCUMENT_ID;
 
