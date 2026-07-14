@@ -60,7 +60,7 @@ export function useTranslation({
       const startPage = Math.max(0, fromPage);
       const endPage = Math.min(toPage, pages.length - 1);
 
-      const pendingIndices: number[] = [];
+      const pendingIndicesSet = new Set<number>();
       const currentObjects = wordObjectsRef.current;
       for (let page = startPage; page <= endPage; page++) {
         for (const index of pages[page]) {
@@ -68,11 +68,10 @@ export function useTranslation({
           if (!item || !needsTranslation(item.word)) continue;
           if (translatedIndicesRef.current.has(index)) continue;
           if (inFlightIndicesRef.current.has(index)) continue;
-          if (!pendingIndices.includes(index)) {
-            pendingIndices.push(index);
-          }
+          pendingIndicesSet.add(index);
         }
       }
+      const pendingIndices = Array.from(pendingIndicesSet);
 
       if (pendingIndices.length === 0) return;
 
