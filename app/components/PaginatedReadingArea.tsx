@@ -81,6 +81,10 @@ export function PaginatedReadingArea({
   const [pages, setPages] = useState<number[][]>([]);
   const [pagesDocumentKey, setPagesDocumentKey] = useState("");
   const [measureVersion, setMeasureVersion] = useState(0);
+  // Debounced copies used only for the measurement path — prevents re-rendering
+  // thousands of hidden WordPairs (and running computePages) on every slider tick.
+  const [measureTextSize, setMeasureTextSize] = useState(textSize);
+  const [measureOpacity, setMeasureOpacity] = useState(opacity);
   const measureRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const paginationRef = useRef<HTMLDivElement>(null);
@@ -89,6 +93,16 @@ export function PaginatedReadingArea({
   useEffect(() => {
     savedProgressRef.current = savedProgressPercent;
   }, [savedProgressPercent]);
+
+  // Debounce size/opacity so the expensive measurement loop (and MeasureArea
+  // re-render over all words) only fires after the user stops dragging.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setMeasureTextSize(textSize);
+      setMeasureOpacity(opacity);
+    }, 150);
+    return () => clearTimeout(id);
+  }, [textSize, opacity]);
 
   const computePages = useCallback(() => {
     const measureEl = measureRef.current;
@@ -204,7 +218,7 @@ export function PaginatedReadingArea({
     // Measure layout before paint; setState here is intentional.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- DOM measurement pagination
     computePages();
-  }, [documentId, textSize, opacity, computePages]);
+  }, [documentId, measureTextSize, measureOpacity, computePages]);
 
   // Debounce repagination when known-word status changes — avoids running the
   // expensive DOM-measurement loop on every single word click.
@@ -298,8 +312,8 @@ export function PaginatedReadingArea({
         <MeasureArea
           measureRef={measureRef}
           wordObjects={wordObjects}
-          textSize={textSize}
-          opacity={opacity}
+          textSize={measureTextSize}
+          opacity={measureOpacity}
           knownWordsSet={knownWordsSet}
           onToggleKnown={onToggleKnown}
           measureVersion={measureVersion}
