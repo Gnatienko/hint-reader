@@ -1,63 +1,90 @@
-import { SAVED_TEXTS_KEY, SavedText } from "../types";
+import {
+  SAVED_TEXTS_STORE,
+  openDb,
+  requestToPromise,
+  transactionDone,
+} from "./db";
+import type { SavedText } from "../types";
 
-export function getSavedTexts(): SavedText[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(SAVED_TEXTS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
+const VALID_LANGUAGES = ["en", "uk"] as const;
+const VALID_LANGUAGES_FROM = ["auto", "es", "en", "bg"] as const;
 
-    // Migration: strip legacy wordObjects blobs to free localStorage quota.
-    let needsWrite = false;
-    const migrated: SavedText[] = parsed.map((item: Record<string, unknown>) => {
-      const hasLegacyBlob = "wordObjects" in item;
-      const missingWordCount = !("wordCount" in item);
-
-      if (!hasLegacyBlob && !missingWordCount) return item as unknown as SavedText;
-
-      needsWrite = true;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { wordObjects: _dropped, ...rest } = item;
-      if (missingWordCount) {
-        const inputText = typeof rest.inputText === "string" ? rest.inputText : "";
-        (rest as Record<string, unknown>).wordCount =
-          inputText.trim().split(/\s+/).filter(Boolean).length;
-      }
-      return rest as unknown as SavedText;
-    });
-
-    if (needsWrite) {
-      try {
-        window.localStorage.setItem(SAVED_TEXTS_KEY, JSON.stringify(migrated));
-      } catch {
-        // ignore quota errors during migration write
-      }
-    }
-
-    return migrated;
-  } catch {
-    return [];
+/**
+ * Validates an unknown value as a SavedText record, filling safe defaults for
+ * optional/secondary fields. Returns null when essential fields are missing.
+ */
+export function parseSavedText(value: unknown): SavedText | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  if (
+    typeof v.id !== "string" ||
+    v.id === "" ||
+    typeof v.name !== "string" ||
+    typeof v.inputText !== "string"
+  ) {
+    return null;
   }
+
+  const inputText = v.inputText;
+  return {
+    id: v.id,
+    name: v.name,
+    sourceFileName:
+      typeof v.sourceFileName === "string" ? v.sourceFileName : undefined,
+    createdAt: typeof v.createdAt === "number" ? v.createdAt : Date.now(),
+    inputText,
+    wordCount:
+      typeof v.wordCount === "number"
+        ? v.wordCount
+        : inputText.trim().split(/\s+/).filter(Boolean).length,
+    knownWords: Array.isArray(v.knownWords)
+      ? v.knownWords.filter((w): w is string => typeof w === "string")
+      : [],
+    textSize: typeof v.textSize === "number" ? v.textSize : 24,
+    translationOpacity:
+      typeof v.translationOpacity === "number" ? v.translationOpacity : 18,
+    language: VALID_LANGUAGES.includes(v.language as never)
+      ? (v.language as SavedText["language"])
+      : "uk",
+    languageFrom: VALID_LANGUAGES_FROM.includes(v.languageFrom as never)
+      ? (v.languageFrom as SavedText["languageFrom"])
+      : "auto",
+    readingProgress:
+      typeof v.readingProgress === "number" ? v.readingProgress : 0,
+  };
 }
 
-export function saveSavedText(item: SavedText): void {
-  const list = getSavedTexts();
-  const without = list.filter((s) => s.id !== item.id);
-  without.unshift(item);
-  try {
-    window.localStorage.setItem(SAVED_TEXTS_KEY, JSON.stringify(without));
-  } catch {
-    // ignore
-  }
+/** Returns all saved texts, newest first. Throws when storage is unavailable. */
+export async function getSavedTexts(): Promise<SavedText[]> {
+  const db = await openDb();
+  const tx = db.transaction(SAVED_TEXTS_STORE, "readonly");
+  const records = await requestToPromise(tx.objectStore(SAVED_TEXTS_STORE).getAll());
+  return (records as unknown[])
+    .map(parseSavedText)
+    .filter((item): item is SavedText => item !== null)
+    .sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export function deleteSavedText(id: string): void {
-  const list = getSavedTexts().filter((s) => s.id !== id);
-  try {
-    window.localStorage.setItem(SAVED_TEXTS_KEY, JSON.stringify(list));
-  } catch {
-    // ignore
-  }
+/** Returns a single saved text by id, or null when absent/invalid. */
+export async function getSavedText(id: string): Promise<SavedText | null> {
+  const db = await openDb();
+  const tx = db.transaction(SAVED_TEXTS_STORE, "readonly");
+  const record = await requestToPromise(tx.objectStore(SAVED_TEXTS_STORE).get(id));
+  return parseSavedText(record);
 }
 
+/** Persists a saved text. Throws on failure so callers can surface it. */
+export async function saveSavedText(item: SavedText): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(SAVED_TEXTS_STORE, "readwrite");
+  tx.objectStore(SAVED_TEXTS_STORE).put(item);
+  await transactionDone(tx);
+}
+
+/** Deletes a saved text by id. Throws on failure so callers can surface it. */
+export async function deleteSavedText(id: string): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(SAVED_TEXTS_STORE, "readwrite");
+  tx.objectStore(SAVED_TEXTS_STORE).delete(id);
+  await transactionDone(tx);
+}

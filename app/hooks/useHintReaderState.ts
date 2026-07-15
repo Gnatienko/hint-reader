@@ -4,11 +4,15 @@ import {
   WELCOME_DOCUMENT_NAME,
   WELCOME_TEXT,
 } from "../lib/defaultText";
+import { getValue, setValue } from "../lib/db";
 import { calculateReadingProgress } from "../lib/readingProgress";
-import { getSavedTexts, deleteSavedText } from "../lib/savedTexts";
+import { getSavedText, getSavedTexts, deleteSavedText } from "../lib/savedTexts";
 import { getDisplayNameFromFileName } from "../lib/bookFormats";
 import { extractTextFromBookFile } from "../lib/extractBookText";
-import { buildWordObjectsFromDictionary } from "../lib/translation";
+import {
+  buildWordObjectsFromDictionary,
+  loadTranslationDictionary,
+} from "../lib/translation";
 import type { CefrLevel } from "../cefrWordLists";
 import type { Language, LanguageFrom, SavedText, WordObject } from "../types";
 import { useKnownWords } from "./useKnownWords";
@@ -45,7 +49,29 @@ type HintReaderState = {
   handleDeleteSaved: (id: string) => void;
   handlePageChange: (currentPage: number, pages: number[][]) => void;
   activeReadingProgress: number;
+  storageError: string | null;
+  clearStorageError: () => void;
 };
+
+const SESSION_STATE_KEY = "session-state";
+const SESSION_WRITE_DEBOUNCE_MS = 300;
+
+/** localStorage keys used by older versions; cleared once to free quota. */
+const LEGACY_LOCAL_STORAGE_KEYS = [
+  "hint-reader-state",
+  "hint-reader-saved-texts",
+  "hint-reader-translation-dictionary",
+];
+
+function parseSessionLanguage(value: unknown): Language | null {
+  return value === "en" || value === "uk" ? value : null;
+}
+
+function parseSessionLanguageFrom(value: unknown): LanguageFrom | null {
+  return value === "auto" || value === "es" || value === "en" || value === "bg"
+    ? value
+    : null;
+}
 
 export function useHintReaderState(): HintReaderState {
   const [inputText, setInputText] = useState("");
@@ -62,6 +88,9 @@ export function useHintReaderState(): HintReaderState {
 
   const wordObjectsRef = useRef(wordObjects);
   const initializedRef = useRef(false);
+  // Blocks session-snapshot writes until startup restore finishes, so the
+  // initial default state can't overwrite the persisted snapshot.
+  const hydratedRef = useRef(false);
   const persistContextRef = useRef({
     activeDocumentId: null as string | null,
     activeDocumentName: null as string | null,
@@ -93,6 +122,9 @@ export function useHintReaderState(): HintReaderState {
     persistDocument,
     refreshSavedTextsList,
     removeSavedFromList,
+    storageError,
+    setStorageError,
+    clearStorageError,
   } = useDocumentPersistence(textSize, translationOpacity, language, languageFrom);
 
   // Keep the persist context ref up to date so persistNow never uses stale values.
@@ -159,9 +191,7 @@ export function useHintReaderState(): HintReaderState {
     ) => {
       const langFrom = langFromOverride ?? languageFrom;
       const lang = langOverride ?? language;
-
-      const existing = getSavedTexts().find((item) => item.id === docId);
-      const progress = readingProgress ?? existing?.readingProgress ?? 0;
+      const progress = readingProgress ?? 0;
 
       const tokenObjects = buildWordObjectsFromDictionary(text, langFrom, lang);
       initDocument(tokenObjects);
@@ -179,8 +209,28 @@ export function useHintReaderState(): HintReaderState {
     [initDocument, persistDocument, setKnownWords, language, languageFrom],
   );
 
-  const loadWelcomeDocument = useCallback(() => {
-    const existing = getSavedTexts().find((item) => item.id === WELCOME_DOCUMENT_ID);
+  const applyDocument = useCallback(
+    (saved: SavedText) => {
+      setTextSize(saved.textSize);
+      setTranslationOpacity(saved.translationOpacity);
+      setLanguage(saved.language);
+      setLanguageFrom(saved.languageFrom);
+      openDocument(
+        saved.inputText,
+        saved.name,
+        saved.sourceFileName ?? null,
+        saved.id,
+        saved.knownWords,
+        saved.readingProgress ?? 0,
+        saved.languageFrom,
+        saved.language,
+      );
+    },
+    [openDocument],
+  );
+
+  const loadWelcomeDocument = useCallback(async () => {
+    const existing = await getSavedText(WELCOME_DOCUMENT_ID).catch(() => null);
     if (existing) {
       openDocument(
         existing.inputText,
@@ -204,153 +254,96 @@ export function useHintReaderState(): HintReaderState {
     );
   }, [openDocument]);
 
-  const applyDocument = useCallback(
-    (saved: SavedText) => {
-      setTextSize(saved.textSize);
-      setTranslationOpacity(saved.translationOpacity);
-      setLanguage(saved.language);
-      setLanguageFrom(saved.languageFrom);
-      openDocument(
-        saved.inputText,
-        saved.name,
-        saved.sourceFileName ?? null,
-        saved.id,
-        saved.knownWords,
-        saved.readingProgress ?? 0,
-        saved.languageFrom,
-        saved.language,
-      );
-    },
-    [openDocument],
-  );
-
   // ── Initialisation ─────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (initializedRef.current || typeof window === "undefined") return;
     initializedRef.current = true;
 
-    try {
-      const raw = window.localStorage.getItem("hint-reader-state");
-      const parsed = raw ? JSON.parse(raw) : null;
-      const savedTexts = getSavedTexts();
-
-      if (parsed) {
-        if (Array.isArray(parsed.knownWords)) {
-          const normalized = parsed.knownWords
-            .filter((w: unknown) => typeof w === "string")
-            .map((w: string) => w.toLowerCase());
-          setKnownWords(Array.from(new Set(normalized)));
-        }
-        if (typeof parsed.textSize === "number") setTextSize(parsed.textSize);
-        if (typeof parsed.translationOpacity === "number")
-          setTranslationOpacity(parsed.translationOpacity);
-        if (parsed.language === "en" || parsed.language === "uk")
-          setLanguage(parsed.language);
-        if (
-          parsed.languageFrom === "auto" ||
-          parsed.languageFrom === "es" ||
-          parsed.languageFrom === "en" ||
-          parsed.languageFrom === "bg"
-        ) {
-          setLanguageFrom(parsed.languageFrom);
+    void (async () => {
+      try {
+        // Old versions kept everything in localStorage; free that quota.
+        try {
+          for (const key of LEGACY_LOCAL_STORAGE_KEYS) {
+            window.localStorage.removeItem(key);
+          }
+        } catch {
+          // localStorage unavailable: nothing to clean up.
         }
 
-        if (typeof parsed.activeDocumentId === "string") {
-          const savedDoc = savedTexts.find(
-            (item) => item.id === parsed.activeDocumentId,
-          );
-          if (savedDoc) {
-            applyDocument(savedDoc);
-            return;
+        // Populate the in-memory cache before building word objects.
+        await loadTranslationDictionary();
+
+        let parsed: Record<string, unknown> | null = null;
+        try {
+          const candidate = await getValue(SESSION_STATE_KEY);
+          if (
+            candidate &&
+            typeof candidate === "object" &&
+            !Array.isArray(candidate)
+          ) {
+            parsed = candidate as Record<string, unknown>;
+          }
+        } catch (error) {
+          console.error("Failed to load session state", error);
+        }
+
+        if (parsed) {
+          if (typeof parsed.textSize === "number") setTextSize(parsed.textSize);
+          if (typeof parsed.translationOpacity === "number")
+            setTranslationOpacity(parsed.translationOpacity);
+          const sessionLang = parseSessionLanguage(parsed.language);
+          const sessionLangFrom = parseSessionLanguageFrom(parsed.languageFrom);
+          if (sessionLang) setLanguage(sessionLang);
+          if (sessionLangFrom) setLanguageFrom(sessionLangFrom);
+
+          if (typeof parsed.activeDocumentId === "string") {
+            const savedDoc = await getSavedText(parsed.activeDocumentId).catch(
+              (error) => {
+                console.error("Failed to restore active document", error);
+                setStorageError("Failed to restore the last opened text.");
+                return null;
+              },
+            );
+            if (savedDoc) {
+              applyDocument(savedDoc);
+              return;
+            }
           }
         }
 
-        // Legacy: session state still has wordObjects from an old write.
-        if (
-          Array.isArray(parsed.wordObjects) &&
-          parsed.wordObjects.length > 0 &&
-          typeof parsed.inputText === "string"
-        ) {
-          const objects = parsed.wordObjects as WordObject[];
-          initDocument(objects);
-          setInputText(parsed.inputText);
-          setWordObjects(objects);
-          if (typeof parsed.activeDocumentId === "string")
-            setActiveDocumentId(parsed.activeDocumentId);
-          if (typeof parsed.activeDocumentName === "string")
-            setActiveDocumentName(parsed.activeDocumentName);
-          if (typeof parsed.activeSourceFileName === "string")
-            setActiveSourceFileName(parsed.activeSourceFileName);
-          return;
-        }
-
-        // New format: reconstruct word objects from the translation dictionary.
-        if (typeof parsed.inputText === "string" && parsed.inputText.length > 0) {
-          const sessionLangFrom: LanguageFrom =
-            parsed.languageFrom === "auto" ||
-            parsed.languageFrom === "es" ||
-            parsed.languageFrom === "en" ||
-            parsed.languageFrom === "bg"
-              ? (parsed.languageFrom as LanguageFrom)
-              : "auto";
-          const sessionLang: Language =
-            parsed.language === "en" || parsed.language === "uk"
-              ? (parsed.language as Language)
-              : "uk";
-          const objects = buildWordObjectsFromDictionary(
-            parsed.inputText as string,
-            sessionLangFrom,
-            sessionLang,
-          );
-          initDocument(objects);
-          setInputText(parsed.inputText as string);
-          setWordObjects(objects);
-          if (typeof parsed.activeDocumentId === "string")
-            setActiveDocumentId(parsed.activeDocumentId);
-          if (typeof parsed.activeDocumentName === "string")
-            setActiveDocumentName(parsed.activeDocumentName);
-          if (typeof parsed.activeSourceFileName === "string")
-            setActiveSourceFileName(parsed.activeSourceFileName);
-          return;
-        }
+        await loadWelcomeDocument();
+      } finally {
+        hydratedRef.current = true;
       }
+    })();
+  }, [applyDocument, loadWelcomeDocument, setStorageError]);
 
-      loadWelcomeDocument();
-    } catch {
-      loadWelcomeDocument();
-    }
-  }, [applyDocument, initDocument, loadWelcomeDocument, setKnownWords]);
-
-  // Persist lightweight session snapshot to localStorage on every relevant change.
+  // Persist a lightweight session snapshot (settings + active document id).
+  // Skipped until hydration so startup defaults never clobber the stored one.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const data = {
-        inputText,
+    const timer = window.setTimeout(() => {
+      if (!hydratedRef.current) return;
+      void setValue(SESSION_STATE_KEY, {
         activeDocumentId,
-        activeDocumentName,
-        activeSourceFileName,
-        knownWords,
         textSize,
         translationOpacity,
         language,
         languageFrom,
-      };
-      window.localStorage.setItem("hint-reader-state", JSON.stringify(data));
-    } catch {
-      // ignore write errors
-    }
+      }).catch((error) => {
+        console.error("Failed to save session state", error);
+        setStorageError("Failed to save reader settings.");
+      });
+    }, SESSION_WRITE_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
   }, [
-    inputText,
     activeDocumentId,
-    activeDocumentName,
-    activeSourceFileName,
-    knownWords,
     textSize,
     translationOpacity,
     language,
     languageFrom,
+    setStorageError,
   ]);
 
   // Debounced full persist to the saved-texts store.
@@ -407,7 +400,8 @@ export function useHintReaderState(): HintReaderState {
       const text = await extractTextFromBookFile(file);
       const displayName = getDisplayNameFromFileName(file.name) || file.name;
 
-      const existing = getSavedTexts().find(
+      const savedTexts = await getSavedTexts().catch(() => [] as SavedText[]);
+      const existing = savedTexts.find(
         (item) => item.sourceFileName === file.name || item.name === displayName,
       );
 
@@ -454,11 +448,17 @@ export function useHintReaderState(): HintReaderState {
   };
 
   const handleDeleteSaved = (id: string) => {
-    deleteSavedText(id);
-    removeSavedFromList(id);
-    if (activeDocumentId === id) {
-      loadWelcomeDocument();
-    }
+    void deleteSavedText(id)
+      .then(() => {
+        removeSavedFromList(id);
+        if (activeDocumentId === id) {
+          void loadWelcomeDocument();
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to delete saved text", error);
+        setStorageError("Failed to delete the saved text.");
+      });
   };
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -493,5 +493,7 @@ export function useHintReaderState(): HintReaderState {
     handleDeleteSaved,
     handlePageChange,
     activeReadingProgress,
+    storageError,
+    clearStorageError,
   };
 }

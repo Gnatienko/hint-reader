@@ -13,8 +13,6 @@ export type SavedText = {
   sourceFileName?: string;
   createdAt: number;
   inputText: string;
-  /** @deprecated No longer stored — reconstructed from the translation dictionary on load. */
-  wordObjects?: WordObject[];
   wordCount: number;
   knownWords: string[];
   textSize: number;
@@ -23,6 +21,4 @@ export type SavedText = {
   languageFrom: LanguageFrom;
   readingProgress?: number;
 };
-
-export const SAVED_TEXTS_KEY = "hint-reader-saved-texts";
 

@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { getSavedTexts, saveSavedText } from "../lib/savedTexts";
+import { useCallback, useRef, useState } from "react";
+import { getSavedText, getSavedTexts, saveSavedText } from "../lib/savedTexts";
 import type { Language, LanguageFrom, SavedText } from "../types";
 
 function buildSavedTextSnapshot(
@@ -38,6 +38,11 @@ export function useDocumentPersistence(
   languageFrom: LanguageFrom,
 ) {
   const [savedTextsList, setSavedTextsList] = useState<SavedText[]>([]);
+  const [storageError, setStorageError] = useState<string | null>(null);
+  // Serialize writes so a slow save can't be overtaken by a newer one.
+  const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  const clearStorageError = useCallback(() => setStorageError(null), []);
 
   const persistDocument = useCallback(
     (
@@ -48,32 +53,55 @@ export function useDocumentPersistence(
       words: string[],
       readingProgress: number,
     ) => {
-      const existing = getSavedTexts().find((item) => item.id === docId);
-      const snapshot = buildSavedTextSnapshot(
-        docId,
-        docName,
-        sourceFileName ?? undefined,
-        text,
-        words,
-        textSize,
-        translationOpacity,
-        language,
-        languageFrom,
-        readingProgress,
-        existing?.createdAt,
-      );
-      saveSavedText(snapshot);
+      writeQueueRef.current = writeQueueRef.current.then(async () => {
+        try {
+          const existing = await getSavedText(docId);
+          const snapshot = buildSavedTextSnapshot(
+            docId,
+            docName,
+            sourceFileName ?? undefined,
+            text,
+            words,
+            textSize,
+            translationOpacity,
+            language,
+            languageFrom,
+            readingProgress,
+            existing?.createdAt,
+          );
+          await saveSavedText(snapshot);
+          setStorageError(null);
+        } catch (error) {
+          console.error("Failed to save document", error);
+          setStorageError(
+            `Failed to save "${docName}". Your reading progress and known words may be lost when you close this tab.`,
+          );
+        }
+      });
     },
     [textSize, translationOpacity, language, languageFrom],
   );
 
   const refreshSavedTextsList = useCallback(() => {
-    setSavedTextsList(getSavedTexts());
+    getSavedTexts()
+      .then(setSavedTextsList)
+      .catch((error) => {
+        console.error("Failed to load saved texts", error);
+        setStorageError("Failed to load saved texts from storage.");
+      });
   }, []);
 
   const removeSavedFromList = useCallback((id: string) => {
     setSavedTextsList((prev) => prev.filter((s) => s.id !== id));
   }, []);
 
-  return { savedTextsList, persistDocument, refreshSavedTextsList, removeSavedFromList };
+  return {
+    savedTextsList,
+    persistDocument,
+    refreshSavedTextsList,
+    removeSavedFromList,
+    storageError,
+    setStorageError,
+    clearStorageError,
+  };
 }

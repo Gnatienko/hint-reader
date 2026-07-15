@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Alert } from "antd";
 import { KnownWordsModal } from "./components/KnownWordsModal";
 import { PaginatedReadingArea } from "./components/PaginatedReadingArea";
 import { ReaderEmptyState } from "./components/ReaderEmptyState";
@@ -46,6 +47,8 @@ export default function Home() {
     handleDeleteSaved,
     handlePageChange,
     activeReadingProgress,
+    storageError,
+    clearStorageError,
   } = useHintReaderState();
 
   const opacity = translationOpacity / 100;
@@ -86,6 +89,16 @@ export default function Home() {
           onOpenKnownWords={() => setIsSettingsOpen(true)}
           highlightTexts={isWelcomeDocument}
         />
+
+        {storageError && (
+          <Alert
+            type="error"
+            banner
+            closable
+            message={storageError}
+            onClose={clearStorageError}
+          />
+        )}
 
         <main className="reader-main">
           <div className="reader-content">
