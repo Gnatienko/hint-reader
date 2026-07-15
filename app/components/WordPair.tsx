@@ -13,6 +13,55 @@ type Props = {
   onToggleKnown: (word: string) => void;
 };
 
+const STICKS_TO_PREVIOUS_RE = /^[.,!?;:»)\]]$/u;
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/**
+ * Builds the hidden pagination measure pass as a raw HTML string — a
+ * layout-only twin of WordPair with the same classes, font size and padding.
+ * Translation hints and known-word state are intentionally omitted: the hint
+ * is absolutely positioned and known-state only changes cursor/opacity, so
+ * neither affects a token's box. Raw HTML (assigned via innerHTML) instead of
+ * React elements keeps opening a book with hundreds of thousands of tokens
+ * from spending seconds in React reconciliation.
+ */
+export function buildMeasureHtml(
+  words: readonly { word: string }[],
+  textSize: number,
+): string {
+  const wordStyle = `font-size:${textSize}px;padding-top:${textSize * 0.55 * 0.5}px`;
+  const parts: string[] = [];
+  for (const item of words) {
+    const word = item.word;
+    const formattingKind = getFormattingWhitespaceKind(word);
+    if (formattingKind === "line" || formattingKind === "paragraph") {
+      parts.push(
+        `<span class="word-format word-format--${formattingKind}" aria-hidden="true"></span>` +
+          `<span class="word-format word-format--indent" aria-hidden="true"></span>`,
+      );
+    } else if (formattingKind) {
+      parts.push(
+        `<span class="word-format word-format--${formattingKind}" aria-hidden="true"></span>`,
+      );
+    } else {
+      const punctClass = STICKS_TO_PREVIOUS_RE.test(word)
+        ? " word-pair--punctuation"
+        : "";
+      parts.push(
+        `<div class="word-pair${punctClass}" style="${wordStyle}">` +
+          `<span style="line-height:1.1">${escapeHtml(word)}</span></div>`,
+      );
+    }
+  }
+  return parts.join("");
+}
+
 export function WordPair({
   item,
   textSize,

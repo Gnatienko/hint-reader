@@ -108,7 +108,6 @@ export default function Home() {
                 documentId={activeDocumentId ?? ""}
                 textSize={textSize}
                 opacity={opacity}
-                knownWords={knownWords}
                 knownWordsSet={knownWordsSet}
                 translating={translating}
                 savedProgressPercent={activeReadingProgress}

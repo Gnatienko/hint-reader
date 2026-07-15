@@ -3,61 +3,19 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "antd";
 import { LeftOutlined, RightOutlined } from "@ant-design/icons";
-import { WordPair } from "./WordPair";
+import { buildMeasureHtml, WordPair } from "./WordPair";
 import {
   calculateReadingProgress,
   formatProgressDisplay,
   pageFromProgress,
 } from "../lib/readingProgress";
 import type { WordObject } from "../types";
-import React from "react";
-
-type MeasureAreaProps = {
-  measureRef: React.RefObject<HTMLDivElement | null>;
-  wordObjects: WordObject[];
-  textSize: number;
-  opacity: number;
-  knownWordsSet: { current: Set<string> };
-  onToggleKnown: (word: string) => void;
-  measureVersion: number; // only used to bust the memo cache
-};
-
-// Memoized so it only re-renders when wordObjects/textSize/opacity change or
-// measureVersion increments (debounced after known-word toggles). This prevents
-// re-rendering every word in the book on each single word click.
-const MeasureArea = React.memo(function MeasureArea({
-  measureRef,
-  wordObjects,
-  textSize,
-  opacity,
-  knownWordsSet,
-  onToggleKnown,
-}: MeasureAreaProps) {
-  return (
-    <div ref={measureRef} className="reading-area reading-area-measure" aria-hidden>
-      {wordObjects.map((item, index) => {
-        if (!item) return null;
-        return (
-          <WordPair
-            key={`measure-${item.word}-${index}`}
-            item={item}
-            textSize={textSize}
-            opacity={opacity}
-            isKnown={knownWordsSet.current.has(item.word.toLowerCase())}
-            onToggleKnown={onToggleKnown}
-          />
-        );
-      })}
-    </div>
-  );
-});
 
 type Props = {
   wordObjects: WordObject[];
   documentId: string;
   textSize: number;
   opacity: number;
-  knownWords: string[];
   knownWordsSet: { current: Set<string> };
   translating?: boolean;
   savedProgressPercent?: number;
@@ -70,7 +28,6 @@ export function PaginatedReadingArea({
   documentId,
   textSize,
   opacity,
-  knownWords,
   knownWordsSet,
   translating = false,
   savedProgressPercent = 0,
@@ -80,11 +37,9 @@ export function PaginatedReadingArea({
   const [currentPage, setCurrentPage] = useState(0);
   const [pages, setPages] = useState<number[][]>([]);
   const [pagesDocumentKey, setPagesDocumentKey] = useState("");
-  const [measureVersion, setMeasureVersion] = useState(0);
-  // Debounced copies used only for the measurement path — prevents re-rendering
-  // thousands of hidden WordPairs (and running computePages) on every slider tick.
+  // Debounced copy used only for the measurement path — prevents re-rendering
+  // thousands of hidden tokens (and running computePages) on every slider tick.
   const [measureTextSize, setMeasureTextSize] = useState(textSize);
-  const [measureOpacity, setMeasureOpacity] = useState(opacity);
   const measureRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const paginationRef = useRef<HTMLDivElement>(null);
@@ -94,15 +49,12 @@ export function PaginatedReadingArea({
     savedProgressRef.current = savedProgressPercent;
   }, [savedProgressPercent]);
 
-  // Debounce size/opacity so the expensive measurement loop (and MeasureArea
+  // Debounce text size so the expensive measurement pass (and MeasureArea
   // re-render over all words) only fires after the user stops dragging.
   useEffect(() => {
-    const id = setTimeout(() => {
-      setMeasureTextSize(textSize);
-      setMeasureOpacity(opacity);
-    }, 150);
+    const id = setTimeout(() => setMeasureTextSize(textSize), 150);
     return () => clearTimeout(id);
-  }, [textSize, opacity]);
+  }, [textSize]);
 
   const computePages = useCallback(() => {
     const measureEl = measureRef.current;
@@ -128,8 +80,11 @@ export function PaginatedReadingArea({
     // match what the viewport renders (absolute measure lives in-viewport).
     measureEl.style.width = `${viewportEl.clientWidth}px`;
 
-    const fitSlack =
-      (parseFloat(getComputedStyle(measureEl).rowGap) || 3) + 4;
+    const measureStyle = getComputedStyle(measureEl);
+    const fitSlack = (parseFloat(measureStyle.rowGap) || 3) + 4;
+    const verticalPadding =
+      (parseFloat(measureStyle.paddingTop) || 0) +
+      (parseFloat(measureStyle.paddingBottom) || 0);
 
     // Formatting tokens (line / paragraph) render as two sibling elements
     // in the measure area: a flex-row-breaking span followed by an indent
@@ -161,76 +116,72 @@ export function PaginatedReadingArea({
       }
     }
 
-    // Each page renders only a word subset that reflows from the top, so
-    // pagination must measure those subsets — not global positions in the
-    // full-document layout (line breaks differ after a page split).
-    const hideAll = () => {
-      for (const child of children) {
-        child.style.display = "none";
+    // Single-layout pagination. Read every child's box once (no style writes
+    // between reads, so the browser lays the document out exactly once),
+    // group children into visual lines, then pack whole lines into pages.
+    // Because pages always break at line boundaries, a page's words reflow
+    // exactly as they did in the full-document layout, so no per-subset
+    // re-measurement is needed. (The previous approach toggled display and
+    // re-read offsetHeight per token — O(n²) forced reflows that froze the
+    // tab for a long time on large books.)
+    //
+    // The reading area uses align-items: flex-end, so every child in a flex
+    // line shares the same bottom edge; a change in bottom marks a new line.
+    type Line = { start: number; end: number; top: number; bottom: number };
+    const lines: Line[] = [];
+    let currentLine: Line | null = null;
+    for (let i = 0; i < children.length; i++) {
+      const rect = children[i].getBoundingClientRect();
+      if (currentLine && Math.abs(rect.bottom - currentLine.bottom) < 1) {
+        currentLine.end = i + 1;
+        if (rect.top < currentLine.top) currentLine.top = rect.top;
+      } else {
+        if (currentLine) lines.push(currentLine);
+        currentLine = { start: i, end: i + 1, top: rect.top, bottom: rect.bottom };
       }
-    };
+    }
+    if (currentLine) lines.push(currentLine);
 
-    hideAll();
+    const pageContentLimit = maxHeight - fitSlack - verticalPadding;
 
     const newPages: number[][] = [];
-    let index = 0;
+    let page: number[] = [];
+    let pageTop = 0;
 
-    while (index < children.length) {
-      const page: number[] = [];
-      hideAll();
-
-      while (index < children.length) {
-        children[index].style.display = "";
-        const contentHeight = measureEl.offsetHeight;
-
-        if (contentHeight > maxHeight - fitSlack && page.length > 0) {
-          children[index].style.display = "none";
-          break;
-        }
-
-        if (!childIsSecondary[index]) {
-          page.push(childWordObjIndex[index]);
-        }
-        index++;
+    for (const line of lines) {
+      if (page.length > 0 && line.bottom - pageTop > pageContentLimit) {
+        newPages.push(page);
+        page = [];
       }
-
-      if (page.length === 0 && index < children.length) {
-        children[index].style.display = "";
-        if (!childIsSecondary[index]) {
-          page.push(childWordObjIndex[index]);
+      if (page.length === 0) pageTop = line.top;
+      for (let i = line.start; i < line.end; i++) {
+        if (!childIsSecondary[i]) {
+          page.push(childWordObjIndex[i]);
         }
-        index++;
       }
-
-      newPages.push(page);
     }
-
-    hideAll();
-    for (const child of children) {
-      child.style.display = "";
-    }
+    if (page.length > 0) newPages.push(page);
 
     setPages(newPages);
     setPagesDocumentKey(documentId);
   }, [documentId]);
 
+  // Rebuild the hidden measure DOM and repaginate. Layout only depends on
+  // token text and font size (translations are absolutely positioned and
+  // known-word state never changes a token's box), so the key deliberately
+  // ignores translation updates, known-word toggles and opacity changes.
+  const measureKeyRef = useRef("");
   useLayoutEffect(() => {
+    const measureEl = measureRef.current;
+    if (!measureEl) return;
+    const key = `${documentId}:${wordObjects.length}:${measureTextSize}`;
+    if (measureKeyRef.current === key) return;
+    measureKeyRef.current = key;
+    measureEl.innerHTML = buildMeasureHtml(wordObjects, measureTextSize);
     // Measure layout before paint; setState here is intentional.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- DOM measurement pagination
     computePages();
-  }, [documentId, measureTextSize, measureOpacity, computePages]);
-
-  // Debounce repagination when known-word status changes — avoids running the
-  // expensive DOM-measurement loop on every single word click.
-  useEffect(() => {
-    const id = setTimeout(() => setMeasureVersion((v) => v + 1), 400);
-    return () => clearTimeout(id);
-  }, [knownWords]);
-
-  useLayoutEffect(() => {
-    if (measureVersion > 0) computePages();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- DOM measurement pagination
-  }, [measureVersion, computePages]);
+  }, [documentId, wordObjects, measureTextSize, computePages]);
 
   useEffect(() => {
     const viewportEl = viewportRef.current;
@@ -309,14 +260,11 @@ export function PaginatedReadingArea({
           })}
         </div>
 
-        <MeasureArea
-          measureRef={measureRef}
-          wordObjects={wordObjects}
-          textSize={measureTextSize}
-          opacity={measureOpacity}
-          knownWordsSet={knownWordsSet}
-          onToggleKnown={onToggleKnown}
-          measureVersion={measureVersion}
+        {/* Hidden measure pass; populated imperatively via buildMeasureHtml. */}
+        <div
+          ref={measureRef}
+          className="reading-area reading-area-measure"
+          aria-hidden
         />
       </div>
 
