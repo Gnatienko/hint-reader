@@ -240,6 +240,24 @@ body {
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Reveal the full translation on hover, even when it is longer than the word. */
+.word-pair:hover {
+  overflow: visible;
+  z-index: 5;
+}
+
+.word-pair:hover .translation-with-mask {
+  opacity: 1 !important;
+  max-width: none;
+  overflow: visible;
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #fbf8f1;
+  box-shadow: 0 1px 6px rgba(44, 36, 25, 0.18);
+}
+
 .known-words-list {
   margin-top: 8px;
   max-height: 240px;
