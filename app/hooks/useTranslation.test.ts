@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Language, LanguageFrom, WordObject } from "../types";
@@ -241,5 +240,60 @@ describe("useTranslation", () => {
 
     expect(translateWordMock).toHaveBeenCalledTimes(1);
     expect(translateWordMock).toHaveBeenCalledWith("two", "auto", "en");
+  });
+
+  it("skips pending indices that disappear mid-batch", async () => {
+    const words: WordObject[] = [
+      { word: "one", translation: "" },
+      { word: "two", translation: "" },
+    ];
+    const { result, wordObjectsRef } = setup(words, {
+      language: "en",
+      languageFrom: "auto",
+    });
+
+    translateWordMock.mockImplementation(async (word: string) => {
+      if (word === "one") {
+        wordObjectsRef.current = [{ word: "one", translation: "" }];
+        return "uno";
+      }
+      return "dos";
+    });
+
+    await act(async () => {
+      await result.current.ensureTranslatedForPages(
+        [[0, 1]],
+        0,
+        0,
+        "auto",
+        "en",
+      );
+    });
+
+    expect(translateWordMock).toHaveBeenCalledTimes(1);
+    expect(translateWordMock).toHaveBeenCalledWith("one", "auto", "en");
+  });
+
+  it("re-translates the last visible pages when the language changes", async () => {
+    translateWordMock.mockResolvedValue("t");
+    const words: WordObject[] = [{ word: "one", translation: "" }];
+    const { result, rerender } = setup(words, {
+      language: "en",
+      languageFrom: "auto",
+    });
+
+    act(() => {
+      result.current.lastPagesRef.current = [[0]];
+      result.current.lastCurrentPageRef.current = 0;
+    });
+    translateWordMock.mockClear();
+
+    await act(async () => {
+      rerender({ language: "uk", languageFrom: "auto" });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(translateWordMock).toHaveBeenCalledWith("one", "auto", "uk");
   });
 });

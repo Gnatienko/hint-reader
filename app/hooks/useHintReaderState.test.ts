@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -303,6 +302,26 @@ describe("deleting saved documents", () => {
     await waitFor(() =>
       expect(result.current.savedTextsList).toHaveLength(0),
     );
+  });
+
+  it("surfaces a storage error when delete fails", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    deleteSavedTextMock.mockRejectedValue(new Error("disk full"));
+    const { result } = await renderReady();
+
+    await act(async () => {
+      result.current.handleDeleteSaved("any-id");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(result.current.storageError).toBe(
+        "Failed to delete the saved text.",
+      ),
+    );
+    expect(consoleSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
   });
 });
 

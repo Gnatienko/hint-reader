@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildWordObjectsFromDictionary,
@@ -54,6 +53,8 @@ describe("token classification", () => {
     expect(getFormattingWhitespaceKind("\n \n")).toBe("paragraph");
     expect(getFormattingWhitespaceKind("\t\t")).toBe("tab");
     expect(getFormattingWhitespaceKind(" ")).toBeNull();
+    // Whitespace that keeps a tab/newline but isn't pure tab/line/paragraph.
+    expect(getFormattingWhitespaceKind("\t ")).toBeNull();
   });
 
   it("only requests translations for word tokens", () => {
